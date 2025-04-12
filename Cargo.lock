@@ -980,12 +980,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "icmc-emulator"
+version = "0.2.1"
+source = "git+https://github.com/ICMC-IDE/icmc-emulator.git#690bb68b195969eea3584cdcabf0de5791087103"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "icmc-gui"
 version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "icmc-emulator",
  "log",
  "serde",
  "wasm-bindgen-futures",
