@@ -1,6 +1,6 @@
 #![warn(clippy::all)]
 
-use icmc_gui::IDEApp;
+use icmc_gui::IdeApp;
 
 /* native */
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,8 +10,8 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "ICMC IDE (native)",                          /* title */
         native_options,                               /* options */
-        Box::new(|cc| Ok(Box::new(IDEApp::new(cc)))), /* creation ctx */
+        Box::new(|_cc| Ok(Box::<IdeApp>::default())), /* creation ctx */
     )
 }
 
-/* todo: wasm32 target */
+/* todo wasm32 target */
