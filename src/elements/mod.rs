@@ -10,10 +10,10 @@ pub use screen::Screen;
 pub use state::StatePanel;
 
 pub trait View {
-    fn ui(&mut self, ui: &mut egui::Ui);
+    fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut egui::Context);
 }
 
 /* View trait that requires reference to emulator's state */
 pub trait ViewState {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State);
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context);
 }

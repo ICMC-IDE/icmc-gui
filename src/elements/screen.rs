@@ -12,7 +12,7 @@ impl Default for Screen {
 
 /* todo: render charmap into canvas */
 impl ViewState for Screen {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
         ui.add_space(10.0);
         ui.vertical_centered(|ui| {
             let size = ui.available_width().min(ui.available_height()) - 25.0;

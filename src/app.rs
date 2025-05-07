@@ -1,11 +1,16 @@
 use crate::elements::{Editor, Screen, StatePanel, View, ViewState};
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
+use std::thread::JoinHandle;
 
 /* Emulator state */
 pub struct State<'a> {
-    pub emulator: &'a mut Emulator,
-    pub fs: &'a fs::Fs,
+    pub emulator: Arc<Mutex<Emulator>>,
+    pub fs: Arc<Mutex<fs::Fs>>,
+    pub freq: Arc<Mutex<f64>>,
+    pub emu_handle: &'a mut Option<JoinHandle<()>>,
+    pub running: Arc<AtomicBool>,
 }
 
 /* Tab manager */
@@ -14,6 +19,7 @@ pub struct TabViewer<'a> {
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
 
+    ctx: &'a mut egui::Context,
     state: &'a mut State<'a>,
     nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
 }
@@ -30,14 +36,20 @@ impl egui_dock::TabViewer for TabViewer<'_> {
             "Screen" => {
                 let screen = &mut self.screen;
                 let state = &mut self.state;
-                screen.ui(ui, state);
+                screen.ui(ui, state, self.ctx);
             }
+
             "State" => {
                 let state_panel = &mut self.state_panel;
                 let state = &mut self.state;
-                state_panel.ui(ui, state);
+                state_panel.ui(ui, state, self.ctx);
             }
-            "Code Editor" => self.editor.ui(ui),
+
+            "Code Editor" => {
+                let state = &mut self.state;
+                self.editor.ui(ui, state, self.ctx);
+            }
+
             _ => {
                 ui.label(tab.as_str());
             }
@@ -52,8 +64,11 @@ pub struct IdeApp {
     focused: String,
 
     /* Core */
-    emulator: icmc_emulator::Emulator,
-    fs: fs::Fs,
+    emulator: Arc<Mutex<Emulator>>,     /* Emulator backend*/
+    fs: Arc<Mutex<fs::Fs>>,             /* Filesystem */
+    freq: Arc<Mutex<f64>>,              /* Emulator running frequency */
+    emu_handle: Option<JoinHandle<()>>, /* Emulator thread handle */
+    running: Arc<AtomicBool>,           /* Emulator thread status */
 
     /* Elements */
     editor: Editor,
@@ -66,8 +81,11 @@ impl Default for IdeApp {
     fn default() -> Self {
         let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
 
-        let emulator = icmc_emulator::Emulator::new();
-        let fs = fs::Fs::new();
+        let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
+        let fs = Arc::new(Mutex::new(fs::Fs::new()));
+        let freq = Arc::new(Mutex::new(1.0));
+        let emu_handle = None;
+        let running = Arc::new(AtomicBool::new(false));
 
         let [_, b] =
             tree.main_surface_mut()
@@ -82,6 +100,9 @@ impl Default for IdeApp {
 
             emulator,
             fs,
+            freq,
+            emu_handle,
+            running,
 
             editor: Editor::default(),
             screen: Screen::default(),
@@ -101,20 +122,24 @@ impl eframe::App for IdeApp {
         let mut nodes = Vec::new();
 
         let mut state = State {
-            emulator: &mut self.emulator,
-            fs: &mut self.fs,
+            emulator: self.emulator.clone(),
+            fs: self.fs.clone(),
+            freq: self.freq.clone(),
+            emu_handle: &mut self.emu_handle,
+            running: self.running.clone(),
         };
 
         let mut tab_viewer = TabViewer {
             editor: &mut self.editor,
             screen: &mut self.screen,
             state_panel: &mut self.state_panel,
+            ctx: &mut ctx.clone(),
             state: &mut state,
             nodes: &mut nodes,
         };
 
         /* top menu */
-		egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
+        egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
             egui::widgets::global_theme_preference_switch(ui);
         });
 
