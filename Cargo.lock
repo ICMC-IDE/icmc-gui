@@ -1041,6 +1041,7 @@ name = "icmc-gui"
 version = "0.1.0"
 dependencies = [
  "assembler",
+ "bytemuck",
  "eframe",
  "egui_dock",
  "env_logger",

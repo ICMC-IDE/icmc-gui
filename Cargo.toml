@@ -16,6 +16,7 @@ eframe = { version = "0.31", default-features = false, features = [
 	"x11", # enable X11 support (alternative: wayland)
 ] }
 egui_dock = "0.16"
+bytemuck = "1.14"
 log = "0.4"
 icmc-emulator = { git = "https://github.com/ICMC-IDE/icmc-emulator.git" }
 fs = { git = "https://github.com/ICMC-IDE/fs.git" }

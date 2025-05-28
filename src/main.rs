@@ -8,9 +8,9 @@ fn main() -> eframe::Result {
     let native_options = eframe::NativeOptions::default();
 
     eframe::run_native(
-        "ICMC IDE (native)",                          /* title */
-        native_options,                               /* options */
-        Box::new(|_cc| Ok(Box::<IdeApp>::default())), /* creation ctx */
+        "ICMC IDE (native)",                            /* title */
+        native_options,                                 /* options */
+        Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc)))), /* creation ctx */
     )
 }
 

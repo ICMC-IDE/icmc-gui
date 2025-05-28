@@ -76,9 +76,8 @@ pub struct IdeApp {
     state_panel: StatePanel,
 }
 
-impl Default for IdeApp {
-    /* Default dock state (screen, state panel and editor) */
-    fn default() -> Self {
+impl IdeApp {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
 
         let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
@@ -105,15 +104,9 @@ impl Default for IdeApp {
             running,
 
             editor: Editor::default(),
-            screen: Screen::default(),
+            screen: Screen::new(cc),
             state_panel: StatePanel::default(),
         }
-    }
-}
-
-impl IdeApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        Default::default()
     }
 }
 
