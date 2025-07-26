@@ -20,24 +20,6 @@ impl ViewState for StatePanel {
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());
 
-        /* Current emulator status */
-        if let Ok(emu) = state.emulator.try_lock() {
-            let status = if Arc::clone(&state.running).load(Ordering::SeqCst) {
-                "Running"
-            } else {
-                match emu.state() {
-                    icmc_emulator::State::Paused => "Paused",
-                    icmc_emulator::State::BreakPoint => "Breakpoint",
-                    icmc_emulator::State::Halted => "Halted",
-                    icmc_emulator::State::UnknownInstruction => "Unknown Instruction",
-                }
-            };
-
-            ui.label(format!("State: {}", status));
-        } else {
-            ui.label("State: (emulator busy)");
-        }
-
         ui.horizontal(|ui| {
             if ui.button("Run").clicked() {
                 let freq = Arc::clone(&state.freq);
@@ -99,15 +81,77 @@ impl ViewState for StatePanel {
             };
         });
 
+        /* Current emulator status */
+        if let Ok(emu) = state.emulator.try_lock() {
+            let status = if Arc::clone(&state.running).load(Ordering::SeqCst) {
+                "Running"
+            } else {
+                match emu.state() {
+                    icmc_emulator::State::Paused => "Paused",
+                    icmc_emulator::State::BreakPoint => "Breakpoint",
+                    icmc_emulator::State::Halted => "Halted",
+                    icmc_emulator::State::UnknownInstruction => "Unknown Instruction",
+                }
+            };
+
+            ui.label(format!("State: {}", status));
+        } else {
+            ui.label("State: (emulator busy)");
+        }
+
         ui.add(egui::Slider::new(&mut *freq, 1.0..=1000.0).text("Frequency"));
 
         /* some CPU internals */
-        if let Ok(emu) = state.emulator.try_lock() {
-            ui.label(format!("PC: {}", emu.pc()));
+        if let Ok(mut emu) = state.emulator.try_lock() {
+            ui.label("Registers");
+            ui.horizontal(|ui| {
+                for i in 0..4 {
+                    ui.label(format!("R{}: ", i));
+                    ui.add(
+                        egui::DragValue::new(emu.reg_as_mut_ref(i))
+                            .hexadecimal(4, false, true)
+                    );
+                }
+            });
 
-            for i in 0..8 {
-                ui.label(format!("Register {}: {}", i, emu.reg(i)));
-            }
+            ui.horizontal(|ui| {
+                for i in 4..8 {
+                    ui.label(format!("R{}: ", i));
+                    ui.add(
+                        egui::DragValue::new(emu.reg_as_mut_ref(i))
+                            .hexadecimal(4, false, true)
+                    );
+                }
+            });
+
+            ui.label("Internal Registers");
+            ui.horizontal(|ui| {
+                ui.label(format!("FR: "));
+                ui.add(egui::DragValue::new(emu.fr_as_mut_ref())
+                    .hexadecimal(4, false, true));
+
+                ui.label(format!("SP: "));
+                ui.add(egui::DragValue::new(emu.sp_as_mut_ref())
+                    .hexadecimal(4, false, true));
+
+                ui.label(format!("PC: "));
+                ui.add(egui::DragValue::new(emu.pc_as_mut_ref())
+                    .hexadecimal(4, false, true));
+
+                ui.label(format!("IR: "));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(3))
+                    .hexadecimal(4, false, true));
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(format!("KB: "));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(4))
+                    .hexadecimal(4, false, true));
+
+                ui.label(format!("WC: "));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(5))
+                    .hexadecimal(4, false, true));
+            });
         } else {
             ui.label("Registers: (emulator busy)");
         }
