@@ -1,4 +1,4 @@
-use crate::elements::{Editor, Screen, StatePanel, View, ViewState};
+use crate::elements::{Editor, Screen, StatePanel, View, ViewState, FileExplorer};
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -18,11 +18,13 @@ pub struct TabViewer<'a> {
     editor: &'a mut Editor,
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
+    file_explorer: &'a mut FileExplorer, // ← novo
 
     ctx: &'a mut egui::Context,
     state: &'a mut State<'a>,
     nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
 }
+
 
 impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = String;
@@ -50,10 +52,17 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 self.editor.ui(ui, state, self.ctx);
             }
 
+            "File Explorer" => {
+                self.file_explorer.ui(ui, self.ctx);
+            }
             _ => {
                 ui.label(tab.as_str());
             }
         }
+    }
+
+    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
     }
 }
 
@@ -74,6 +83,7 @@ pub struct IdeApp {
     editor: Editor,
     screen: Screen,
     state_panel: StatePanel,
+    file_explorer: FileExplorer,
 }
 
 impl IdeApp {
@@ -85,10 +95,15 @@ impl IdeApp {
         let freq = Arc::new(Mutex::new(1.0));
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
-
-        let [_, b] =
+        
+        let [_, _] =
             tree.main_surface_mut()
-                .split_left(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+                .split_right(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+
+        let [_, b] = 
+            tree.main_surface_mut()
+                .split_left(NodeIndex::root(), 0.3, vec!["File Explorer".to_owned()]);
+
         let [_, _] = tree
             .main_surface_mut()
             .split_below(b, 0.5, vec!["State".to_owned()]);
@@ -106,6 +121,7 @@ impl IdeApp {
             editor: Editor::default(),
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
+            file_explorer: FileExplorer::new(),
         }
     }
 }
@@ -126,6 +142,7 @@ impl eframe::App for IdeApp {
             editor: &mut self.editor,
             screen: &mut self.screen,
             state_panel: &mut self.state_panel,
+            file_explorer: &mut self.file_explorer, // ← novo
             ctx: &mut ctx.clone(),
             state: &mut state,
             nodes: &mut nodes,

@@ -4,10 +4,12 @@ use egui_dock::egui;
 pub mod editor;
 pub mod screen;
 pub mod state;
+pub mod file_explorer;
 
 pub use editor::Editor;
 pub use screen::Screen;
 pub use state::StatePanel;
+pub use file_explorer::FileExplorer;
 
 pub trait View {
     fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut egui::Context);
