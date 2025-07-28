@@ -4,10 +4,12 @@ use egui_dock::egui;
 pub mod editor;
 pub mod screen;
 pub mod state;
+pub mod log;
 
 pub use editor::Editor;
 pub use screen::Screen;
 pub use state::StatePanel;
+pub use log::LogPanel;
 
 pub trait View {
     fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut egui::Context);

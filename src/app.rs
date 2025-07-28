@@ -1,4 +1,4 @@
-use crate::elements::{Editor, Screen, StatePanel, View, ViewState};
+use crate::elements::{Editor, Screen, StatePanel, LogPanel, View, ViewState};
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -11,6 +11,7 @@ pub struct State<'a> {
     pub freq: Arc<Mutex<f64>>,
     pub emu_handle: &'a mut Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
+    pub log_panel: Arc<Mutex<LogPanel>>, 
 }
 
 /* Tab manager */
@@ -18,6 +19,7 @@ pub struct TabViewer<'a> {
     editor: &'a mut Editor,
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
+    log_panel: Arc<Mutex<LogPanel>>,
 
     ctx: &'a mut egui::Context,
     state: &'a mut State<'a>,
@@ -50,6 +52,12 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 self.editor.ui(ui, state, self.ctx);
             }
 
+            "Log" => {
+                if let Ok(mut log_panel) = self.log_panel.lock() {
+                    log_panel.ui(ui, self.state, self.ctx);
+                }
+            }
+
             _ => {
                 ui.label(tab.as_str());
             }
@@ -74,6 +82,7 @@ pub struct IdeApp {
     editor: Editor,
     screen: Screen,
     state_panel: StatePanel,
+    log_panel: Arc<Mutex<LogPanel>>,
 }
 
 impl IdeApp {
@@ -86,9 +95,11 @@ impl IdeApp {
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
 
-        let [_, b] =
+        let [a, b] =
             tree.main_surface_mut()
                 .split_left(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+        let [_, _] = tree.main_surface_mut()
+            .split_below(a, 0.8, vec!["Log".to_owned()]);
         let [_, _] = tree
             .main_surface_mut()
             .split_below(b, 0.5, vec!["State".to_owned()]);
@@ -106,6 +117,7 @@ impl IdeApp {
             editor: Editor::default(),
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
+            log_panel: Arc::new(Mutex::new(LogPanel::default())),
         }
     }
 }
@@ -120,6 +132,7 @@ impl eframe::App for IdeApp {
             freq: self.freq.clone(),
             emu_handle: &mut self.emu_handle,
             running: self.running.clone(),
+            log_panel: self.log_panel.clone(),
         };
 
         let mut tab_viewer = TabViewer {
@@ -129,6 +142,7 @@ impl eframe::App for IdeApp {
             ctx: &mut ctx.clone(),
             state: &mut state,
             nodes: &mut nodes,
+            log_panel: self.log_panel.clone(),
         };
 
         /* top menu */
