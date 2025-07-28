@@ -1,4 +1,4 @@
-use crate::elements::{Editor, Screen, StatePanel, LogPanel, View, ViewState};
+use crate::elements::{Editor, Screen, StatePanel, LogPanel, View, ViewState, FileExplorer};
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -20,11 +20,13 @@ pub struct TabViewer<'a> {
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
+    file_explorer: &'a mut FileExplorer, // ← novo
 
     ctx: &'a mut egui::Context,
     state: &'a mut State<'a>,
     nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
 }
+
 
 impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = String;
@@ -58,10 +60,23 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 }
             }
 
+            "Log" => {
+                if let Ok(mut log_panel) = self.log_panel.lock() {
+                    log_panel.ui(ui, self.state, self.ctx);
+                }
+            }
+
+            "File Explorer" => {
+                self.file_explorer.ui(ui, self.ctx);
+            }
             _ => {
                 ui.label(tab.as_str());
             }
         }
+    }
+
+    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
     }
 }
 
@@ -83,6 +98,7 @@ pub struct IdeApp {
     screen: Screen,
     state_panel: StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
+    file_explorer: FileExplorer,
 }
 
 impl IdeApp {
@@ -94,12 +110,17 @@ impl IdeApp {
         let freq = Arc::new(Mutex::new(1.0));
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
-
-        let [a, b] =
+        
+        let [_, _] =
             tree.main_surface_mut()
-                .split_left(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+                .split_right(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+
+        let [a, b] = 
+            tree.main_surface_mut()
+                .split_left(NodeIndex::root(), 0.3, vec!["File Explorer".to_owned()]);
         let [_, _] = tree.main_surface_mut()
             .split_below(a, 0.8, vec!["Log".to_owned()]);
+
         let [_, _] = tree
             .main_surface_mut()
             .split_below(b, 0.5, vec!["State".to_owned()]);
@@ -118,6 +139,7 @@ impl IdeApp {
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
             log_panel: Arc::new(Mutex::new(LogPanel::default())),
+            file_explorer: FileExplorer::new(),
         }
     }
 }
@@ -139,6 +161,7 @@ impl eframe::App for IdeApp {
             editor: &mut self.editor,
             screen: &mut self.screen,
             state_panel: &mut self.state_panel,
+            file_explorer: &mut self.file_explorer, // ← novo
             ctx: &mut ctx.clone(),
             state: &mut state,
             nodes: &mut nodes,
