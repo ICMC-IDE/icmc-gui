@@ -99,7 +99,21 @@ impl ViewState for StatePanel {
             ui.label("State: (emulator busy)");
         }
 
-        ui.add(egui::Slider::new(&mut *freq, 1.0..=1000.0).text("Frequency"));
+        ui.add(
+            egui::Slider::new(&mut *freq, 1.0..=10_000_000.0)
+                .logarithmic(true)
+                .custom_formatter(|f, _| {
+                    let (f_value, f_unit) = if f >= 1_000_000.0 {
+                        (f / 1_000_000.0, "MHz")
+                    } else if f >= 1_000.0 {
+                        (f / 1_000.0, "kHz")
+                    } else {
+                        (f, "Hz")
+                    };
+
+                    format!("{:.1} {}", f_value, f_unit)
+                }),
+        );
 
         /* some CPU internals */
         if let Ok(mut emu) = state.emulator.try_lock() {
