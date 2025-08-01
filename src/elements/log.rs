@@ -1,7 +1,6 @@
 use super::ViewState;
 use crate::State;
 use egui_dock::egui;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct LogPanel {
