@@ -1,4 +1,4 @@
-use crate::elements::{Editor, Screen, StatePanel, LogPanel, View, ViewState, FileExplorer};
+use crate::elements::{Editor, FileExplorer, LogPanel, Screen, StatePanel, View, ViewState};
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -11,7 +11,7 @@ pub struct State<'a> {
     pub freq: Arc<Mutex<f64>>,
     pub emu_handle: &'a mut Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
-    pub log_panel: Arc<Mutex<LogPanel>>, 
+    pub log_panel: Arc<Mutex<LogPanel>>,
 }
 
 /* Tab manager */
@@ -26,7 +26,6 @@ pub struct TabViewer<'a> {
     state: &'a mut State<'a>,
     nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
 }
-
 
 impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = String;
@@ -69,14 +68,11 @@ impl egui_dock::TabViewer for TabViewer<'_> {
             "File Explorer" => {
                 self.file_explorer.ui(ui, self.ctx);
             }
+
             _ => {
                 ui.label(tab.as_str());
             }
         }
-    }
-
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
-        false
     }
 }
 
@@ -110,15 +106,18 @@ impl IdeApp {
         let freq = Arc::new(Mutex::new(1.0));
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
-        
+
         let [_, _] =
             tree.main_surface_mut()
                 .split_right(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
 
-        let [a, b] = 
-            tree.main_surface_mut()
-                .split_left(NodeIndex::root(), 0.3, vec!["File Explorer".to_owned()]);
-        let [_, _] = tree.main_surface_mut()
+        let [a, b] = tree.main_surface_mut().split_left(
+            NodeIndex::root(),
+            0.3,
+            vec!["File Explorer".to_owned()],
+        );
+        let [_, _] = tree
+            .main_surface_mut()
             .split_below(a, 0.8, vec!["Log".to_owned()]);
 
         let [_, _] = tree
@@ -175,12 +174,12 @@ impl eframe::App for IdeApp {
 
         /* dock area */
         DockArea::new(&mut self.tree)
-            .show_add_buttons(false)
             .style({
                 let mut style = Style::from_egui(ctx.style().as_ref());
                 style.tab_bar.fill_tab_bar = true;
                 style
             })
+            .show_close_buttons(false)
             .show(ctx, &mut tab_viewer);
 
         nodes.drain(..).for_each(|(surface, node)| {
