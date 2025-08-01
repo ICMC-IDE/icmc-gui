@@ -1,8 +1,12 @@
-use crate::elements::{Editor, FileExplorer, LogPanel, Screen, StatePanel, View, ViewState};
+use crate::elements::{Editor, FileExplorer, LogPanel, Screen, StatePanel, ViewState};
+use egui_dock::dock_state::tree::Split;
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
-use std::thread::JoinHandle;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{atomic::AtomicBool, Arc, Mutex},
+    thread::JoinHandle,
+};
 
 /* Emulator state */
 pub struct State<'a> {
@@ -20,11 +24,11 @@ pub struct TabViewer<'a> {
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
-    file_explorer: &'a mut FileExplorer, // ← novo
+    file_explorer: &'a mut FileExplorer,
 
     ctx: &'a mut egui::Context,
+    open_tabs: &'a mut HashSet<String>,
     state: &'a mut State<'a>,
-    nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
@@ -59,12 +63,6 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 }
             }
 
-            "Log" => {
-                if let Ok(mut log_panel) = self.log_panel.lock() {
-                    log_panel.ui(ui, self.state, self.ctx);
-                }
-            }
-
             "File Explorer" => {
                 self.file_explorer.ui(ui, self.ctx);
             }
@@ -74,13 +72,19 @@ impl egui_dock::TabViewer for TabViewer<'_> {
             }
         }
     }
+
+    fn on_close(&mut self, tab: &mut Self::Tab) -> bool {
+        self.open_tabs.remove(tab);
+        true
+    }
 }
 
 /* Main app */
 pub struct IdeApp {
     /* Tab/Dock related */
     tree: DockState<String>,
-    focused: String,
+    open_tabs: HashSet<String>,
+    nodes: HashMap<String, NodeIndex>,
 
     /* Core */
     emulator: Arc<Mutex<Emulator>>,     /* Emulator backend*/
@@ -100,6 +104,8 @@ pub struct IdeApp {
 impl IdeApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
+        let mut nodes = HashMap::new();
+        nodes.insert("Code Editor".to_owned(), NodeIndex::root());
 
         let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
         let fs = Arc::new(Mutex::new(fs::Fs::new()));
@@ -107,26 +113,48 @@ impl IdeApp {
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
 
-        let [_, _] =
-            tree.main_surface_mut()
-                .split_right(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
+        /* Open docks in default configuration */
+        for tab in &["Screen", "State", "Log"] {
+            let (parent, fraction, split) = match *tab {
+                "Screen" => (NodeIndex::root(), 0.3, Split::Left),
+                "State" => (nodes.get("Screen").copied().unwrap(), 0.5, Split::Below),
+                "Log" => (
+                    nodes.get("Code Editor").copied().unwrap(),
+                    0.7,
+                    Split::Below,
+                ),
+                _ => unreachable!(),
+            };
 
-        let [a, b] = tree.main_surface_mut().split_left(
-            NodeIndex::root(),
-            0.3,
-            vec!["File Explorer".to_owned()],
-        );
-        let [_, _] = tree
-            .main_surface_mut()
-            .split_below(a, 0.8, vec!["Log".to_owned()]);
+            let [a, b] = tree.main_surface_mut().split(
+                parent,
+                split,
+                fraction,
+                egui_dock::Node::leaf((*tab).to_owned()),
+            );
 
-        let [_, _] = tree
-            .main_surface_mut()
-            .split_below(b, 0.5, vec!["State".to_owned()]);
+            nodes.insert((*tab).to_owned(), b);
+
+            if *tab == "Screen" {
+                /* Code Editor is not root anymore here */
+                nodes.insert("Code Editor".to_owned(), a);
+            }
+        }
+
+        let mut open_tabs = HashSet::new();
+
+        for node in tree[SurfaceIndex::main()].iter() {
+            if let Some(tabs) = node.tabs() {
+                for tab in tabs {
+                    open_tabs.insert(tab.clone());
+                }
+            }
+        }
 
         Self {
             tree,
-            focused: "Screen".to_owned(),
+            open_tabs,
+            nodes,
 
             emulator,
             fs,
@@ -141,11 +169,77 @@ impl IdeApp {
             file_explorer: FileExplorer::new(),
         }
     }
+
+    fn find_node_index(&self, name: &str) -> Option<NodeIndex> {
+        let surface = &self.tree[SurfaceIndex::main()];
+
+        for (i, node) in surface.iter().enumerate() {
+            if let Some(tabs) = node.tabs() {
+                if tabs.iter().any(|t| t == name) {
+                    return Some(NodeIndex::from(i));
+                }
+            }
+        }
+        None
+    }
+
+    fn bar_contents(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::widgets::global_theme_preference_switch(ui);
+
+        ui.horizontal(|ui| {
+            for tab in &["Code Editor", "Screen", "State", "Log", "File Explorer"] {
+                let is_open = self.open_tabs.contains(*tab);
+
+                if ui.selectable_label(is_open, *tab).clicked() {
+                    if let Some(idx) = self.tree.find_tab(&tab.to_string()) {
+                        self.tree.remove_tab(idx);
+                        self.open_tabs.remove(*tab);
+                    } else {
+                        let (parent, fraction, split) = match *tab {
+                            "Log" => (
+                                self.find_node_index("Code Editor")
+                                    .unwrap_or(NodeIndex::root()),
+                                0.7,
+                                Split::Below,
+                            ),
+                            "File Explorer" => (
+                                self.find_node_index("Code Editor")
+                                    .unwrap_or(NodeIndex::root()),
+                                0.8,
+                                Split::Right,
+                            ),
+                            _ => (NodeIndex::root(), 0.8, Split::Right),
+                        };
+
+                        self.tree.main_surface_mut().split(
+                            parent,
+                            split,
+                            fraction,
+                            egui_dock::Node::leaf((*tab).to_string()),
+                        );
+                        self.open_tabs.insert((*tab).to_string());
+                    }
+                }
+            }
+        });
+
+        ui.add_space(2.0);
+    }
 }
 
 impl eframe::App for IdeApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let mut nodes = Vec::new();
+        if self.open_tabs.is_empty() {
+            let ctx = ctx.clone();
+            std::thread::spawn(move || {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            });
+        }
+
+        /* top menu */
+        egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
+            self.bar_contents(ui, frame);
+        });
 
         let mut state = State {
             emulator: self.emulator.clone(),
@@ -160,17 +254,12 @@ impl eframe::App for IdeApp {
             editor: &mut self.editor,
             screen: &mut self.screen,
             state_panel: &mut self.state_panel,
-            file_explorer: &mut self.file_explorer, // ← novo
+            file_explorer: &mut self.file_explorer,
             ctx: &mut ctx.clone(),
+            open_tabs: &mut self.open_tabs,
             state: &mut state,
-            nodes: &mut nodes,
             log_panel: self.log_panel.clone(),
         };
-
-        /* top menu */
-        egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
-            egui::widgets::global_theme_preference_switch(ui);
-        });
 
         /* dock area */
         DockArea::new(&mut self.tree)
@@ -179,12 +268,8 @@ impl eframe::App for IdeApp {
                 style.tab_bar.fill_tab_bar = true;
                 style
             })
-            .show_close_buttons(false)
+            .show_close_buttons(true)
+            .show_leaf_close_all_buttons(false)
             .show(ctx, &mut tab_viewer);
-
-        nodes.drain(..).for_each(|(surface, node)| {
-            self.tree.set_focused_node_and_surface((surface, node));
-            self.tree.push_to_focused_leaf(self.focused.clone());
-        });
     }
 }
