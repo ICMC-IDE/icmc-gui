@@ -49,11 +49,11 @@ impl ViewState for Editor {
                             log_panel.add_log("Assembly successful! Binary loaded.".to_string());
                         }
                     }
-                    Err(error_msg) => { 
+                    Err(err) => {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Assembly error: {}", error_msg));
-                            
-                            if let Some((line, col)) = extract_line_column(&error_msg) {
+                            log_panel.add_log(format!("Assembly error: {}", err));
+
+                            if let Some((line, col)) = extract_line_column(&err) {
                                 log_panel.add_log(format!("    at line {}, column {}", line, col));
                             }
                         }
@@ -70,6 +70,7 @@ impl ViewState for Editor {
             egui::TextEdit::multiline(&mut self.code_buf)
                 .font(egui::TextStyle::Monospace)
                 .code_editor()
+                .desired_rows(50)
                 .desired_width(f32::INFINITY),
         );
     }
@@ -78,15 +79,23 @@ impl ViewState for Editor {
 fn extract_line_column(error_msg: &str) -> Option<(usize, usize)> {
     let mut line = 0;
     let mut col = 0;
-    
+
     if let Some(pos) = error_msg.find("line ") {
         let rest = &error_msg[pos + 5..];
-        line = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        line = rest
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
     }
-    
+
     if let Some(pos) = error_msg.find("column ") {
         let rest = &error_msg[pos + 7..];
-        col = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        col = rest
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
     }
 
     if line > 0 || col > 0 {

@@ -1,6 +1,6 @@
-use egui_dock::egui;
 use super::ViewState;
 use crate::State;
+use egui_dock::egui;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl LogPanel {
 impl ViewState for LogPanel {
     fn ui(&mut self, ui: &mut egui::Ui, _state: &mut State, _ctx: &mut egui::Context) {
         ui.add_space(10.0);
-        
+
         ui.horizontal(|ui| {
             if ui.button("Clear Log").clicked() {
                 self.clear_logs();
@@ -55,14 +55,14 @@ impl ViewState for LogPanel {
                 let scroll_area = egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .stick_to_bottom(true);
-                
+
                 scroll_area.show(ui, |ui| {
                     ui.vertical(|ui| {
                         for log in self.logs() {
                             ui.label(
                                 egui::RichText::new(log)
                                     .monospace()
-                                    .color(egui::Color32::LIGHT_GRAY)
+                                    .color(egui::Color32::LIGHT_GRAY),
                             );
                         }
                         if self.auto_scroll {
