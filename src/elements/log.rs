@@ -48,7 +48,12 @@ impl ViewState for LogPanel {
             }
         });
 
-        egui::Frame::dark_canvas(ui.style())
+        let font_color = match ui.visuals().dark_mode {
+            true => egui::Color32::LIGHT_GRAY,
+            false => egui::Color32::DARK_GRAY,
+        };
+
+        egui::Frame::canvas(ui.style())
             .inner_margin(egui::Margin::symmetric(8, 4))
             .show(ui, |ui| {
                 let scroll_area = egui::ScrollArea::vertical()
@@ -58,11 +63,7 @@ impl ViewState for LogPanel {
                 scroll_area.show(ui, |ui| {
                     ui.vertical(|ui| {
                         for log in self.logs() {
-                            ui.label(
-                                egui::RichText::new(log)
-                                    .monospace()
-                                    .color(egui::Color32::LIGHT_GRAY),
-                            );
+                            ui.label(egui::RichText::new(log).monospace().color(font_color));
                         }
                         if self.auto_scroll {
                             ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
