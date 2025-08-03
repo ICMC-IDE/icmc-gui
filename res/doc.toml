@@ -1,0 +1,467 @@
+[[row]]
+type = "header"
+title = "Memory"
+
+[[row]]
+type = "instruction"
+mnem = "store address, rx"
+opcode = "110001"
+pseudo = "*address = rx"
+
+[[row]]
+type = "instruction"
+mnem = "storei rx, ry"
+opcode = "111101"
+pseudo = "**rx = ry"
+
+[[row]]
+type = "instruction"
+mnem = "load rx, address"
+opcode = "110000"
+pseudo = "rx = *address"
+
+[[row]]
+type = "instruction"
+mnem = "loadi rx, ry"
+opcode = "111100"
+pseudo = "rx = **ry"
+
+[[row]]
+type = "instruction"
+mnem = "loadn rx, #number"
+opcode = "111000"
+pseudo = "rx = number"
+
+[[row]]
+type = "header"
+title = "Move"
+
+[[row]]
+type = "instruction"
+mnem = "mov rx, ry"
+opcode = "110011"
+pseudo = "rx = ry"
+
+[[row]]
+type = "instruction"
+mnem = "mov rx, sp"
+opcode = "110011"
+pseudo = "rx = sp"
+
+[[row]]
+type = "instruction"
+mnem = "mov sp, rx"
+opcode = "110011"
+pseudo = "sp = rx"
+
+[[row]]
+type = "header"
+title = "Arithmetic"
+
+[[row]]
+type = "instruction"
+mnem = "add rx, ry, rz"
+opcode = "100000"
+pseudo = "rx = ry + rz"
+
+[[row]]
+type = "instruction"
+mnem = "addc rx, ry, rz"
+opcode = "100000"
+pseudo = "rx = ry + rz + carry"
+
+[[row]]
+type = "instruction"
+mnem = "sub rx, ry, rz"
+opcode = "100001"
+pseudo = "rx = ry - rz"
+
+[[row]]
+type = "instruction"
+mnem = "subc rx, ry, rz"
+opcode = "100001"
+pseudo = "rx = ry - rz + carry"
+
+[[row]]
+type = "instruction"
+mnem = "mul rx, ry, rz"
+opcode = "100010"
+pseudo = "rx = ry * rz"
+
+[[row]]
+type = "instruction"
+mnem = "mulc rx, ry, rz"
+opcode = "100010"
+pseudo = "rx = ry * rz + carry"
+
+[[row]]
+type = "instruction"
+mnem = "div rx, ry, rz"
+opcode = "100011"
+pseudo = "rx = ry / rz"
+
+[[row]]
+type = "instruction"
+mnem = "divc rx, ry, rz"
+opcode = "100011"
+pseudo = "rx = ry / rz + carry"
+
+[[row]]
+type = "instruction"
+mnem = "mod rx, ry, rz"
+opcode = "100101"
+pseudo = "rx = ry % rz"
+
+[[row]]
+type = "instruction"
+mnem = "inc rx"
+opcode = "100100"
+pseudo = "rx++"
+
+[[row]]
+type = "instruction"
+mnem = "dec rx"
+opcode = "100100"
+pseudo = "rx--"
+
+[[row]]
+type = "header"
+title = "Logic"
+
+[[row]]
+type = "instruction"
+mnem = "and rx, ry, rz"
+opcode = "010010"
+pseudo = "rx = ry & rz"
+
+[[row]]
+type = "instruction"
+mnem = "or rx, ry, rz"
+opcode = "010011"
+pseudo = "rx = ry | rz"
+
+[[row]]
+type = "instruction"
+mnem = "xor rx, ry, rz"
+opcode = "010100"
+pseudo = "rx = ry ^ rz"
+
+[[row]]
+type = "instruction"
+mnem = "not rx, ry"
+opcode = "010101"
+pseudo = "rx = ~ry"
+
+[[row]]
+type = "instruction"
+mnem = "rotl rx, #bits"
+opcode = "010000"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "rotr rx, #bits"
+opcode = "010000"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "shiftl0 rx, #bits"
+opcode = "010000"
+pseudo = "rx = rx << bits"
+
+[[row]]
+type = "instruction"
+mnem = "shiftl1 rx, #bits"
+opcode = "010000"
+pseudo = "rx = rx << bits | (1 << bits - 1)"
+
+[[row]]
+type = "instruction"
+mnem = "shiftr0 rx, #bits"
+opcode = "010000"
+pseudo = "rx = rx >> bits"
+
+[[row]]
+type = "instruction"
+mnem = "shiftr1 rx, #bits"
+opcode = "010000"
+pseudo = "rx = rx >> bits | (0xFFFF >> bits << bits)"
+
+[[row]]
+type = "instruction"
+mnem = "cmp rx, ry"
+opcode = "010110"
+pseudo = ""
+
+[[row]]
+type = "header"
+title = "IO"
+
+[[row]]
+type = "instruction"
+mnem = "inchar rx"
+opcode = "110101"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "outchar rx, ry"
+opcode = "110010"
+pseudo = ""
+
+[[row]]
+type = "header"
+title = "Jump"
+
+[[row]]
+type = "instruction"
+mnem = "jmp address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jeq address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jne address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jz address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jnz address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jc address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jnc address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jgr address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jle address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jeg address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jel address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jov address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jnov address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jn address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "jdz address"
+opcode = "000010"
+pseudo = ""
+
+[[row]]
+type = "header"
+title = "Call"
+
+[[row]]
+type = "instruction"
+mnem = "call address"
+opcode = "000011"
+pseudo = "address()"
+
+[[row]]
+type = "instruction"
+mnem = "ceq address"
+opcode = "000011"
+pseudo = "if (eq) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cne address"
+opcode = "000011"
+pseudo = "if (ne) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cz address"
+opcode = "000011"
+pseudo = "if (z) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cnz address"
+opcode = "000011"
+pseudo = "if (nz) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cc address"
+opcode = "000011"
+pseudo = "if (c) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cnc address"
+opcode = "000011"
+pseudo = "if (nc) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cgr address"
+opcode = "000011"
+pseudo = "if (gr) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cle address"
+opcode = "000011"
+pseudo = "if (le) address()"
+
+[[row]]
+type = "instruction"
+mnem = "ceg address"
+opcode = "000011"
+pseudo = "if (eg) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cel address"
+opcode = "000011"
+pseudo = "if (el) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cov address"
+opcode = "000011"
+pseudo = "if (ov) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cnov address"
+opcode = "000011"
+pseudo = "if (nov) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cn address"
+opcode = "000011"
+pseudo = "if (n) address()"
+
+[[row]]
+type = "instruction"
+mnem = "cdz address"
+opcode = "000011"
+pseudo = "if (dz) address()"
+
+[[row]]
+type = "instruction"
+mnem = "rts"
+opcode = "000100"
+pseudo = "return"
+
+[[row]]
+type = "header"
+title = "Stack"
+
+[[row]]
+type = "instruction"
+mnem = "push rx"
+opcode = "000101"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "push fr"
+opcode = "000101"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "pop rx"
+opcode = "000110"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "pop fr"
+opcode = "000110"
+pseudo = ""
+
+[[row]]
+type = "header"
+title = "Control"
+
+[[row]]
+type = "instruction"
+mnem = "clearc"
+opcode = "001000"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "setc"
+opcode = "001000"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "halt"
+opcode = "001111"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "nop"
+opcode = "000000"
+pseudo = ""
+
+[[row]]
+type = "instruction"
+mnem = "breakp"
+opcode = "001110"
+pseudo = ""

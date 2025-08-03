@@ -243,7 +243,7 @@ impl Screen {
 
 /* todo: render charmap into canvas */
 impl ViewState for Screen {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, _ctx: &mut egui::Context) {
         ui.add_space(10.0);
         ui.vertical_centered(|ui| {
             egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {

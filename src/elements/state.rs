@@ -99,7 +99,21 @@ impl ViewState for StatePanel {
             ui.label("State: (emulator busy)");
         }
 
-        ui.add(egui::Slider::new(&mut *freq, 1.0..=1000.0).text("Frequency"));
+        ui.add(
+            egui::Slider::new(&mut *freq, 1.0..=10_000_000.0)
+                .logarithmic(true)
+                .custom_formatter(|f, _| {
+                    let (f_value, f_unit) = if f >= 1_000_000.0 {
+                        (f / 1_000_000.0, "MHz")
+                    } else if f >= 1_000.0 {
+                        (f / 1_000.0, "kHz")
+                    } else {
+                        (f, "Hz")
+                    };
+
+                    format!("{:.1} {}", f_value, f_unit)
+                }),
+        );
 
         /* some CPU internals */
         if let Ok(mut emu) = state.emulator.try_lock() {
@@ -107,50 +121,38 @@ impl ViewState for StatePanel {
             ui.horizontal(|ui| {
                 for i in 0..4 {
                     ui.label(format!("R{}: ", i));
-                    ui.add(
-                        egui::DragValue::new(emu.reg_as_mut_ref(i))
-                            .hexadecimal(4, false, true)
-                    );
+                    ui.add(egui::DragValue::new(emu.reg_as_mut_ref(i)).hexadecimal(4, false, true));
                 }
             });
 
             ui.horizontal(|ui| {
                 for i in 4..8 {
                     ui.label(format!("R{}: ", i));
-                    ui.add(
-                        egui::DragValue::new(emu.reg_as_mut_ref(i))
-                            .hexadecimal(4, false, true)
-                    );
+                    ui.add(egui::DragValue::new(emu.reg_as_mut_ref(i)).hexadecimal(4, false, true));
                 }
             });
 
             ui.label("Internal Registers");
             ui.horizontal(|ui| {
                 ui.label(format!("FR: "));
-                ui.add(egui::DragValue::new(emu.fr_as_mut_ref())
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.fr_as_mut_ref()).hexadecimal(4, false, true));
 
                 ui.label(format!("SP: "));
-                ui.add(egui::DragValue::new(emu.sp_as_mut_ref())
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.sp_as_mut_ref()).hexadecimal(4, false, true));
 
                 ui.label(format!("PC: "));
-                ui.add(egui::DragValue::new(emu.pc_as_mut_ref())
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.pc_as_mut_ref()).hexadecimal(4, false, true));
 
                 ui.label(format!("IR: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(3))
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(3)).hexadecimal(4, false, true));
             });
 
             ui.horizontal(|ui| {
                 ui.label(format!("KB: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(4))
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(4)).hexadecimal(4, false, true));
 
                 ui.label(format!("WC: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(5))
-                    .hexadecimal(4, false, true));
+                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(5)).hexadecimal(4, false, true));
             });
         } else {
             ui.label("Registers: (emulator busy)");
