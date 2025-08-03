@@ -1,4 +1,6 @@
-use crate::elements::{Editor, FileExplorer, LogPanel, Screen, StatePanel, ViewState};
+use crate::elements::{
+    Documentation, Editor, FileExplorer, LogPanel, Screen, StatePanel, View, ViewState,
+};
 use egui_dock::dock_state::tree::Split;
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
@@ -21,6 +23,7 @@ pub struct State<'a> {
 /* Tab manager */
 pub struct TabViewer<'a> {
     editor: &'a mut Editor,
+    doc: &'a mut Documentation,
     screen: &'a mut Screen,
     state_panel: &'a mut StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
@@ -67,6 +70,10 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 self.file_explorer.ui(ui, self.ctx);
             }
 
+            "Documentation" => {
+                self.doc.ui(ui, self.ctx);
+            }
+
             _ => {
                 ui.label(tab.as_str());
             }
@@ -95,6 +102,7 @@ pub struct IdeApp {
 
     /* Elements */
     editor: Editor,
+    doc: Documentation,
     screen: Screen,
     state_panel: StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
@@ -163,6 +171,7 @@ impl IdeApp {
             running,
 
             editor: Editor::default(),
+            doc: Documentation::default(),
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
             log_panel: Arc::new(Mutex::new(LogPanel::default())),
@@ -184,10 +193,18 @@ impl IdeApp {
     }
 
     fn bar_contents(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::widgets::global_theme_preference_switch(ui);
-
+        ui.add_space(2.0);
         ui.horizontal(|ui| {
-            for tab in &["Code Editor", "Screen", "State", "Log", "File Explorer"] {
+            egui::widgets::global_theme_preference_switch(ui);
+
+            for tab in &[
+                "Code Editor",
+                "Screen",
+                "State",
+                "Log",
+                "File Explorer",
+                "Documentation",
+            ] {
                 let is_open = self.open_tabs.contains(*tab);
 
                 if ui.selectable_label(is_open, *tab).clicked() {
@@ -195,34 +212,46 @@ impl IdeApp {
                         self.tree.remove_tab(idx);
                         self.open_tabs.remove(*tab);
                     } else {
-                        let (parent, fraction, split) = match *tab {
-                            "Log" => (
-                                self.find_node_index("Code Editor")
-                                    .unwrap_or(NodeIndex::root()),
-                                0.7,
-                                Split::Below,
-                            ),
-                            "File Explorer" => (
-                                self.find_node_index("Code Editor")
-                                    .unwrap_or(NodeIndex::root()),
-                                0.8,
-                                Split::Right,
-                            ),
-                            _ => (NodeIndex::root(), 0.8, Split::Right),
-                        };
+                        if *tab == "Documentation" {
+                            self.tree.add_window(vec!["Documentation".to_owned()]);
+                        } else {
+                            let surf = self.tree.main_surface_mut();
+                            let empty_root = surf
+                                .iter()
+                                .all(|node| node.tabs().map_or(true, |t| t.is_empty()));
 
-                        self.tree.main_surface_mut().split(
-                            parent,
-                            split,
-                            fraction,
-                            egui_dock::Node::leaf((*tab).to_string()),
-                        );
+                            if empty_root {
+                                surf.push_to_focused_leaf((*tab).to_string());
+                            } else {
+                                let (parent, fraction, split) = match *tab {
+                                    "Log" => (
+                                        self.find_node_index("Code Editor")
+                                            .unwrap_or(NodeIndex::root()),
+                                        0.7,
+                                        Split::Below,
+                                    ),
+                                    "File Explorer" => (
+                                        self.find_node_index("Code Editor")
+                                            .unwrap_or(NodeIndex::root()),
+                                        0.8,
+                                        Split::Right,
+                                    ),
+                                    _ => (NodeIndex::root(), 0.8, Split::Right),
+                                };
+
+                                self.tree.main_surface_mut().split(
+                                    parent,
+                                    split,
+                                    fraction,
+                                    egui_dock::Node::leaf((*tab).to_string()),
+                                );
+                            }
+                        }
                         self.open_tabs.insert((*tab).to_string());
                     }
                 }
             }
         });
-
         ui.add_space(2.0);
     }
 }
@@ -252,6 +281,7 @@ impl eframe::App for IdeApp {
 
         let mut tab_viewer = TabViewer {
             editor: &mut self.editor,
+            doc: &mut self.doc,
             screen: &mut self.screen,
             state_panel: &mut self.state_panel,
             file_explorer: &mut self.file_explorer,

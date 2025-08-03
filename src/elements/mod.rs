@@ -1,12 +1,14 @@
 use crate::State;
 use egui_dock::egui;
 
+pub mod documentation;
 pub mod editor;
 pub mod file_explorer;
 pub mod log;
 pub mod screen;
 pub mod state;
 
+pub use documentation::Documentation;
 pub use editor::Editor;
 pub use file_explorer::FileExplorer;
 pub use log::LogPanel;
