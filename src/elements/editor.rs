@@ -25,17 +25,27 @@ impl ViewState for Editor {
 
             /* TODO: stop saving code in "./.code.asm" and implement
              * a file explorer */
-            match fs.write(".code.asm", self.code_buf.as_bytes()) {
-                Ok(_) => (),
-                Err(_) => {
-                    println!("Couldn't write code file");
-                }
+             
+            #[cfg(target_family = "wasm")]
+            {
+                fs.write(".code.asm", self.code_buf.as_bytes());
+                fs.write(".icmc.toml", icmc_syntax.as_bytes());
             }
 
-            match fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
-                Ok(_) => (),
-                Err(err) => {
-                    println!("Couldn't write syntax file");
+            #[cfg(not(target_family = "wasm"))]
+            {
+                match fs.write(".code.asm", self.code_buf.as_bytes()) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        println!("Couldn't write code file");
+                    }
+                }
+
+                match fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        println!("Couldn't write syntax file");
+                    }
                 }
             }
 
