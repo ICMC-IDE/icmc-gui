@@ -63,11 +63,7 @@ impl ViewState for LogPanel {
                 scroll_area.show(ui, |ui| {
                     ui.vertical(|ui| {
                         for log in self.logs() {
-                            ui.label(
-                                egui::RichText::new(log)
-                                    .monospace()
-                                    .color(font_color),
-                            );
+                            ui.label(egui::RichText::new(log).monospace().color(font_color));
                         }
                         if self.auto_scroll {
                             ui.scroll_to_cursor(Some(egui::Align::BOTTOM));

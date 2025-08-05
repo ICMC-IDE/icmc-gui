@@ -2,8 +2,6 @@ use super::ViewState;
 use crate::State;
 use egui_dock::egui;
 use std::sync::{atomic::Ordering, Arc};
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub struct StatePanel;
 
@@ -32,37 +30,95 @@ impl ViewState for StatePanel {
 
                 /* TODO: improve thread communcation with std::sync::mpsc */
 
-                *state.emu_handle = Some(thread::spawn(move || {
-                    while running.load(Ordering::SeqCst) {
-                        let start = Instant::now();
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    use std::thread;
+                    use std::time::{Duration, Instant};
 
-                        {
-                            let mut emu = emu.lock().unwrap();
+                    *state.emu_handle = Some(thread::spawn(move || {
+                        while running.load(Ordering::SeqCst) {
+                            let start = Instant::now();
 
-                            /* Stop if emulator is halted */
-                            if emu.state() == icmc_emulator::State::Halted {
-                                running.store(false, Ordering::SeqCst);
+                            {
+                                let mut emu = emu.lock().unwrap();
+
+                                /* Stop if emulator is halted */
+                                if emu.state() == icmc_emulator::State::Halted {
+                                    running.store(false, Ordering::SeqCst);
+                                }
+
+                                emu.next();
                             }
 
-                            emu.next();
+                            /* ensure that egui doesn't stop rendering */
+                            ctx.request_repaint();
+
+                            let freq_val = {
+                                let f = freq.lock().unwrap();
+                                *f
+                            };
+
+                            let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
+                            let elapsed = start.elapsed();
+
+                            if elapsed < sleep_time {
+                                thread::sleep(sleep_time - elapsed);
+                            }
                         }
+                    }));
+                }
 
-                        /* ensure that egui doesn't stop rendering */
-                        ctx.request_repaint();
+                #[cfg(target_arch = "wasm32")]
+                {
+                    use gloo_timers::future::TimeoutFuture;
+                    use std::cell::RefCell;
+                    use std::rc::Rc;
+                    use wasm_bindgen_futures::spawn_local;
 
-                        let freq_val = {
-                            let f = freq.lock().unwrap();
-                            *f
-                        };
-
-                        let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
-                        let elapsed = start.elapsed();
-
-                        if elapsed < sleep_time {
-                            thread::sleep(sleep_time - elapsed);
-                        }
+                    fn performance_now() -> f64 {
+                        web_sys::window().unwrap().performance().unwrap().now()
                     }
-                }));
+
+                    running.store(true, Ordering::SeqCst);
+
+                    let ticks_pending = Rc::new(RefCell::new(0.0));
+                    let last_tick = Rc::new(RefCell::new(performance_now()));
+
+                    spawn_local(async move {
+                        while running.load(Ordering::SeqCst) {
+                            let now = performance_now();
+                            let elapsed = now - *last_tick.borrow();
+                            *last_tick.borrow_mut() = now;
+
+                            let freq_val = {
+                                let f = freq.lock().unwrap();
+                                *f
+                            };
+
+                            *ticks_pending.borrow_mut() += elapsed * freq_val * 1e-3;
+
+                            if *ticks_pending.borrow() > 1_000_000.0 {
+                                *ticks_pending.borrow_mut() = 1_000_000.0;
+                            }
+
+                            {
+                                let mut emu = emu.lock().unwrap();
+
+                                if emu.state() == icmc_emulator::State::Halted {
+                                    running.store(false, Ordering::SeqCst);
+                                    break;
+                                }
+
+                                let ticks_done = emu.tick(*ticks_pending.borrow() as isize) as f64;
+                                *ticks_pending.borrow_mut() -= ticks_done;
+                            }
+
+                            ctx.request_repaint();
+
+                            TimeoutFuture::new(0).await;
+                        }
+                    });
+                }
             }
 
             if ui.button("Stop").clicked() {
