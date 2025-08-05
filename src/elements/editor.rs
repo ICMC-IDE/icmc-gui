@@ -24,37 +24,68 @@ impl ViewState for Editor {
                 let mut emu = state.emulator.lock().unwrap();
                 let icmc_syntax = include_str!("../../res/icmc.toml");
 
-                if let Err(e) = fs.write(".code.asm", self.code_buf.as_bytes()) {
-                    if let Ok(mut log_panel) = state.log_panel.lock() {
-                        log_panel.add_log(format!("Failed to write .code.asm: {}", e));
-                    }
-                    return;
+                /* TODO: stop saving code in "./.code.asm" and implement
+                 * a file explorer */
+
+                #[cfg(target_family = "wasm")]
+                {
+                    todo!("Need to implement JS wrapper to fs.js");
+                    /*
+                    fs.write(".code.asm", self.code_buf.as_bytes());
+                    fs.write(".icmc.toml", icmc_syntax.as_bytes());
+                    */
                 }
 
-                if let Err(e) = fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
-                    if let Ok(mut log_panel) = state.log_panel.lock() {
-                        log_panel.add_log(format!("Failed to write .icmc.toml: {}", e));
-                    }
-                    return;
-                }
-
-                if let Ok(mut log_panel) = state.log_panel.lock() {
-                    log_panel.auto_scroll();
-                }
-
-                match assembler::assemble(&fs, ".code.asm", ".icmc.toml") {
-                    Ok(asm) => {
-                        emu.load(&asm.binary());
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log("Assembly successful! Binary loaded.".to_string());
+                #[cfg(not(target_family = "wasm"))]
+                {
+                    match fs.write(".code.asm", self.code_buf.as_bytes()) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            println!("Couldn't write code file");
                         }
                     }
-                    Err(err) => {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Assembly error: {}", err));
 
-                            if let Some((line, col)) = extract_line_column(&err) {
-                                log_panel.add_log(format!("    at line {}, column {}", line, col));
+                    match fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            println!("Couldn't write syntax file");
+                        }
+                    }
+
+                    if let Err(e) = fs.write(".code.asm", self.code_buf.as_bytes()) {
+                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                            log_panel.add_log(format!("Failed to write .code.asm: {}", e));
+                        }
+                        return;
+                    }
+
+                    if let Err(e) = fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
+                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                            log_panel.add_log(format!("Failed to write .icmc.toml: {}", e));
+                        }
+                        return;
+                    }
+
+                    if let Ok(mut log_panel) = state.log_panel.lock() {
+                        log_panel.auto_scroll();
+                    }
+
+                    match assembler::assemble(&fs, ".code.asm", ".icmc.toml") {
+                        Ok(asm) => {
+                            emu.load(&asm.binary());
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel
+                                    .add_log("Assembly successful! Binary loaded.".to_string());
+                            }
+                        }
+                        Err(err) => {
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel.add_log(format!("Assembly error: {}", err));
+
+                                if let Some((line, col)) = extract_line_column(&err) {
+                                    log_panel
+                                        .add_log(format!("    at line {}, column {}", line, col));
+                                }
                             }
                         }
                     }
