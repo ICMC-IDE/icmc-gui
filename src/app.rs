@@ -6,6 +6,7 @@ use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::{
     collections::{HashMap, HashSet},
+    path::PathBuf,
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread::JoinHandle,
 };
@@ -17,7 +18,10 @@ pub struct State<'a> {
     pub freq: Arc<Mutex<f64>>,
     pub emu_handle: &'a mut Option<JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
+    pub code_buf: &'a mut Option<String>,
     pub log_panel: Arc<Mutex<LogPanel>>,
+    pub ide_path: &'a mut Option<PathBuf>,
+    pub open_file: &'a mut Option<PathBuf>,
 }
 
 /* Tab manager */
@@ -67,7 +71,7 @@ impl egui_dock::TabViewer for TabViewer<'_> {
             }
 
             "File Explorer" => {
-                self.file_explorer.ui(ui, self.ctx);
+                self.file_explorer.ui(ui, self.state, self.ctx);
             }
 
             "Documentation" => {
@@ -100,6 +104,10 @@ pub struct IdeApp {
     emu_handle: Option<JoinHandle<()>>, /* Emulator thread handle */
     running: Arc<AtomicBool>,           /* Emulator thread status */
 
+    code_buf: Option<String>,
+    ide_path: Option<PathBuf>,
+    open_file: Option<PathBuf>,
+
     /* Elements */
     editor: Editor,
     doc: Documentation,
@@ -110,7 +118,7 @@ pub struct IdeApp {
 }
 
 impl IdeApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, ide_path: Option<PathBuf>) -> Self {
         let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
         let mut nodes = HashMap::new();
         nodes.insert("Code Editor".to_owned(), NodeIndex::root());
@@ -159,6 +167,16 @@ impl IdeApp {
             }
         }
 
+        let root_path = match ide_path {
+            Some(ref path) => Some(PathBuf::from(format!("{}workspace/", path.display()))),
+            None => None,
+        };
+        let example_path =
+            PathBuf::from(format!("{}main.asm", root_path.clone().unwrap().display()));
+
+        std::fs::write(&example_path, include_str!("../res/example.asm"))
+            .expect("Couldn't write code file");
+
         Self {
             tree,
             open_tabs,
@@ -170,12 +188,16 @@ impl IdeApp {
             emu_handle,
             running,
 
+            code_buf: None,
+            ide_path: ide_path.clone(),
+            open_file: Some(example_path),
+
             editor: Editor::default(),
             doc: Documentation::default(),
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
             log_panel: Arc::new(Mutex::new(LogPanel::default())),
-            file_explorer: FileExplorer::new(),
+            file_explorer: FileExplorer::new(root_path),
         }
     }
 
@@ -276,7 +298,10 @@ impl eframe::App for IdeApp {
             freq: self.freq.clone(),
             emu_handle: &mut self.emu_handle,
             running: self.running.clone(),
+            code_buf: &mut self.code_buf,
             log_panel: self.log_panel.clone(),
+            ide_path: &mut self.ide_path,
+            open_file: &mut self.open_file,
         };
 
         let mut tab_viewer = TabViewer {

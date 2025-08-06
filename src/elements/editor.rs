@@ -2,20 +2,20 @@ use super::ViewState;
 use crate::State;
 use egui_dock::egui;
 
-pub struct Editor {
-    code_buf: String, /* Editor buffer */
-}
+pub struct Editor;
 
 impl Default for Editor {
     fn default() -> Self {
-        Self {
-            code_buf: include_str!("../../res/example.asm").to_owned(),
-        }
+        Self {}
     }
 }
 
 impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, _ctx: &mut egui::Context) {
+        let code_buf = state
+            .code_buf
+            .get_or_insert_with(|| include_str!("../../res/example.asm").to_owned());
+
         ui.add_space(10.0);
 
         ui.horizontal(|ui| {
@@ -31,35 +31,29 @@ impl ViewState for Editor {
                 {
                     todo!("Need to implement JS wrapper to fs.js");
                     /*
-                    fs.write(".code.asm", self.code_buf.as_bytes());
+                    fs.write(".code.asm", state.code_buf.as_bytes());
                     fs.write(".icmc.toml", icmc_syntax.as_bytes());
                     */
                 }
 
                 #[cfg(not(target_family = "wasm"))]
                 {
-                    match fs.write(".code.asm", self.code_buf.as_bytes()) {
-                        Ok(_) => (),
-                        Err(_) => {
-                            println!("Couldn't write code file");
-                        }
-                    }
+                    let syntax_path =
+                        &format!("{}/icmc.toml", state.ide_path.clone().unwrap().display());
 
-                    match fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
-                        Ok(_) => (),
-                        Err(_) => {
-                            println!("Couldn't write syntax file");
-                        }
-                    }
+                    let open_file = match state.open_file {
+                        Some(f) => f.to_str().unwrap(),
+                        &mut None => todo!(),
+                    };
 
-                    if let Err(e) = fs.write(".code.asm", self.code_buf.as_bytes()) {
+                    if let Err(e) = fs.write(open_file, code_buf.as_bytes()) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
                             log_panel.add_log(format!("Failed to write .code.asm: {}", e));
                         }
                         return;
                     }
 
-                    if let Err(e) = fs.write(".icmc.toml", icmc_syntax.as_bytes()) {
+                    if let Err(e) = fs.write(syntax_path, icmc_syntax.as_bytes()) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
                             log_panel.add_log(format!("Failed to write .icmc.toml: {}", e));
                         }
@@ -70,7 +64,7 @@ impl ViewState for Editor {
                         log_panel.auto_scroll();
                     }
 
-                    match assembler::assemble(&fs, ".code.asm", ".icmc.toml") {
+                    match assembler::assemble(&fs, open_file, syntax_path) {
                         Ok(asm) => {
                             emu.load(&asm.binary());
                             if let Ok(mut log_panel) = state.log_panel.lock() {
@@ -93,12 +87,12 @@ impl ViewState for Editor {
             }
 
             if ui.button("Clear Editor").clicked() {
-                self.code_buf.clear();
+                code_buf.clear();
             }
         });
 
         ui.add(
-            egui::TextEdit::multiline(&mut self.code_buf)
+            egui::TextEdit::multiline(code_buf)
                 .font(egui::TextStyle::Monospace)
                 .code_editor()
                 .desired_rows(50)

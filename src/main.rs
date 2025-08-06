@@ -1,16 +1,39 @@
 #![warn(clippy::all)]
 
 use icmc_gui::IdeApp;
+use std::path::PathBuf;
 
 /* native */
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     let native_options = eframe::NativeOptions::default();
 
+    /* Create local directory if it doesn't exist */
+    let ide_dir = if cfg!(unix) {
+        match std::env::var_os("HOME") {
+            Some(v) => format!("{}/.icmc_ide/", v.into_string().unwrap()),
+            None => "./.icmc_ide/".to_owned(),
+        }
+    } else if cfg!(windows) {
+        match std::env::var_os("LOCALAPPDATA") {
+            Some(v) => format!("{}\\icmc_ide\\", v.into_string().unwrap()),
+            None => ".\\.icmc_ide\\".to_owned(),
+        }
+    } else {
+        todo!();
+    };
+    let ide_path = PathBuf::from(&ide_dir);
+
+    if !ide_path.exists() {
+        std::fs::create_dir(&ide_path).expect("Couldn't create local dir");
+        std::fs::create_dir(format!("{}/workspace", ide_path.display()))
+            .expect("Couldn't create workspace dir");
+    }
+
     eframe::run_native(
-        "ICMC IDE (native)",                            /* title */
-        native_options,                                 /* options */
-        Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc)))), /* creation ctx */
+        "ICMC IDE (native)",                                            /* title */
+        native_options,                                                 /* options */
+        Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, Some(ide_path))))), /* creation ctx */
     )
 }
 
@@ -39,7 +62,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc)))),
+                Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, None)))),
             )
             .await;
 
