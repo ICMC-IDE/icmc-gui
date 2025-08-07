@@ -171,11 +171,19 @@ impl IdeApp {
             Some(ref path) => Some(PathBuf::from(format!("{}workspace/", path.display()))),
             None => None,
         };
-        let example_path =
-            PathBuf::from(format!("{}main.asm", root_path.clone().unwrap().display()));
+        let example_path = match root_path {
+            Some(ref root_path) => {
+                PathBuf::from(format!("{}main.asm", root_path.clone().display()))
+            }
+            None => PathBuf::from("main.asm"),
+        };
 
-        std::fs::write(&example_path, include_str!("../res/example.asm"))
-            .expect("Couldn't write code file");
+        let binding = fs.clone();
+        let mut fs_unlock = binding.lock().unwrap();
+        fs_unlock.write(
+            example_path.to_str().unwrap(),
+            include_str!("../res/example.asm").to_owned().as_bytes(),
+        );
 
         Self {
             tree,

@@ -12,7 +12,12 @@ pub struct FileExplorer {
 
 impl FileExplorer {
     pub fn new(path: Option<PathBuf>) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
         let root_path = path.or(Some(std::env::current_dir().unwrap())).unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        let root_path = path.or(Some(PathBuf::from("."))).unwrap();
+
         let entries = Self::read_dir(&root_path);
 
         Self {
@@ -34,13 +39,26 @@ impl ViewState for FileExplorer {
         let paths: Vec<std::path::PathBuf> = self.entries.iter().map(|e| e.path()).collect();
 
         if ui.button("Add File").clicked() {
-            if let Some(path) = rfd::FileDialog::new().pick_file() {
-                let dest = self.current_path.join(path.file_name().unwrap_or_default());
+            #[cfg(target_arch = "wasm32")]
+            {
+                wasm_bindgen_futures::spawn_local(async {
+                    if let Some(path) = rfd::AsyncFileDialog::new().pick_file().await {
+                        let file_name = path.file_name();
+                        let data = path.read();
+                    }
+                });
+            }
 
-                if let Err(e) = std::fs::copy(&path, &dest) {
-                    eprintln!("Couldn't copy file: {}", e);
-                } else {
-                    self.entries = Self::read_dir(&self.current_path);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    let dest = self.current_path.join(path.file_name().unwrap_or_default());
+
+                    if let Err(e) = std::fs::copy(&path, &dest) {
+                        eprintln!("Couldn't copy file: {}", e);
+                    } else {
+                        self.entries = Self::read_dir(&self.current_path);
+                    }
                 }
             }
         }
