@@ -1,7 +1,8 @@
 use crate::elements::{
-    Documentation, Editor, FileExplorer, LogPanel, Screen, StatePanel, View, ViewState,
+    Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel, View, ViewState,
 };
 use egui_dock::dock_state::tree::Split;
+use egui_dock::tab_viewer::OnCloseResponse;
 use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
 use icmc_emulator::Emulator;
 use std::{
@@ -20,6 +21,7 @@ pub struct State<'a> {
     pub running: Arc<AtomicBool>,
     pub code_buf: &'a mut Option<String>,
     pub log_panel: Arc<Mutex<LogPanel>>,
+    pub mem_editor: Arc<Mutex<MemEditor>>,
     pub ide_path: &'a mut Option<PathBuf>,
     pub open_file: &'a mut Option<PathBuf>,
 }
@@ -32,6 +34,7 @@ pub struct TabViewer<'a> {
     state_panel: &'a mut StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
     file_explorer: &'a mut FileExplorer,
+    mem_editor: Arc<Mutex<MemEditor>>,
 
     ctx: &'a mut egui::Context,
     open_tabs: &'a mut HashSet<String>,
@@ -78,15 +81,21 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 self.doc.ui(ui, self.ctx);
             }
 
+            "Memory Editor" => {
+                if let Ok(mut mem_editor) = self.mem_editor.lock() {
+                    mem_editor.ui(ui, self.state, self.ctx);
+                }
+            }
+
             _ => {
                 ui.label(tab.as_str());
             }
         }
     }
 
-    fn on_close(&mut self, tab: &mut Self::Tab) -> bool {
+    fn on_close(&mut self, tab: &mut Self::Tab) -> OnCloseResponse {
         self.open_tabs.remove(tab);
-        true
+        OnCloseResponse::Close
     }
 }
 
@@ -115,6 +124,7 @@ pub struct IdeApp {
     state_panel: StatePanel,
     log_panel: Arc<Mutex<LogPanel>>,
     file_explorer: FileExplorer,
+    mem_editor: Arc<Mutex<MemEditor>>,
 }
 
 impl IdeApp {
@@ -205,6 +215,7 @@ impl IdeApp {
             screen: Screen::new(cc),
             state_panel: StatePanel::default(),
             log_panel: Arc::new(Mutex::new(LogPanel::default())),
+            mem_editor: Arc::new(Mutex::new(MemEditor::default())),
             file_explorer: FileExplorer::new(root_path),
         }
     }
@@ -234,6 +245,7 @@ impl IdeApp {
                 "Log",
                 "File Explorer",
                 "Documentation",
+                "Memory Editor",
             ] {
                 let is_open = self.open_tabs.contains(*tab);
 
@@ -259,6 +271,12 @@ impl IdeApp {
                                             .unwrap_or(NodeIndex::root()),
                                         0.7,
                                         Split::Below,
+                                    ),
+                                    "Memory Editor" => (
+                                        self.find_node_index("Code Editor")
+                                            .unwrap_or(NodeIndex::root()),
+                                        0.6,
+                                        Split::Right,
                                     ),
                                     "File Explorer" => (
                                         self.find_node_index("Code Editor")
@@ -308,6 +326,7 @@ impl eframe::App for IdeApp {
             running: self.running.clone(),
             code_buf: &mut self.code_buf,
             log_panel: self.log_panel.clone(),
+            mem_editor: self.mem_editor.clone(),
             ide_path: &mut self.ide_path,
             open_file: &mut self.open_file,
         };
@@ -322,6 +341,7 @@ impl eframe::App for IdeApp {
             open_tabs: &mut self.open_tabs,
             state: &mut state,
             log_panel: self.log_panel.clone(),
+            mem_editor: self.mem_editor.clone(),
         };
 
         /* dock area */

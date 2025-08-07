@@ -1,5 +1,8 @@
+use core::f32;
+
 use super::ViewState;
 use crate::State;
+use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 use egui_dock::egui;
 
 pub struct Editor;
@@ -23,9 +26,6 @@ impl ViewState for Editor {
                 let mut fs = state.fs.lock().unwrap();
                 let mut emu = state.emulator.lock().unwrap();
                 let icmc_syntax = include_str!("../../res/icmc.toml");
-
-                /* TODO: stop saving code in "./.code.asm" and implement
-                 * a file explorer */
 
                 #[cfg(target_family = "wasm")]
                 {
@@ -91,13 +91,19 @@ impl ViewState for Editor {
             }
         });
 
-        ui.add(
-            egui::TextEdit::multiline(code_buf)
-                .font(egui::TextStyle::Monospace)
-                .code_editor()
-                .desired_rows(50)
-                .desired_width(f32::INFINITY),
-        );
+        let color_theme = match ui.visuals().dark_mode {
+            true => ColorTheme::GITHUB_DARK,
+            false => ColorTheme::GITHUB_LIGHT,
+        };
+
+        CodeEditor::default()
+            .id_source("asm_editor")
+            .with_rows(0)
+            .with_fontsize(14.0)
+            .with_theme(color_theme)
+            .with_syntax(Syntax::asm())
+            .with_numlines(true)
+            .show(ui, code_buf);
     }
 }
 
