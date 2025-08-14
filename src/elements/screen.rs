@@ -1,5 +1,4 @@
 use super::ViewState;
-use crate::resources::charmap;
 use crate::State;
 use eframe::{egui_glow, glow};
 use egui_dock::egui;
@@ -95,10 +94,8 @@ impl ScrCanvas {
             gl.vertex_attrib_pointer_i32(1, 2, glow::UNSIGNED_BYTE, 0, 0);
             gl.vertex_attrib_divisor(1, 1);
 
-            let charmap_bin_buf = include_bytes!("../../res/charmap.bin");
-            let charmap = charmap::Charmap::from_bytes(8, 8, 40, 30, charmap_bin_buf);
-
-            let texture = gl.create_texture().expect("Cannot create texture");
+            let charmap_tex_buf = include_bytes!("../../res/charmap_tex.bin");
+			let texture = gl.create_texture().expect("Cannot create texture");
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
@@ -129,7 +126,7 @@ impl ScrCanvas {
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(Some(charmap.pixels())),
+                glow::PixelUnpackData::Slice(Some(charmap_tex_buf)),
             );
 
             Self {
@@ -233,7 +230,7 @@ impl Screen {
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                 canvas
                     .lock()
-                    .expect("Coudln't unlock canvas")
+                    .expect("Couldn't unlock canvas")
                     .draw(painter.gl(), vram);
             })),
         };
