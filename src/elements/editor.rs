@@ -6,11 +6,13 @@ use crate::State;
 use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 use egui_dock::egui;
 
-pub struct Editor;
+pub struct Editor {
+    font_size: f32,
+}
 
 impl Default for Editor {
     fn default() -> Self {
-        Self {}
+        Self { font_size: 14.0 }
     }
 }
 
@@ -90,6 +92,18 @@ impl ViewState for Editor {
             if ui.button("Clear Editor").clicked() {
                 code_buf.clear();
             }
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("-").clicked() {
+                    self.font_size -= 2.0;
+                }
+
+                if ui.button("+").clicked() {
+                    self.font_size += 2.0;
+                }
+
+                ui.label("Font size:");
+            });
         });
 
         let color_theme = if ui.visuals().dark_mode {
@@ -103,7 +117,7 @@ impl ViewState for Editor {
         CodeEditor::default()
             .id_source("asm_editor")
             .with_rows(0)
-            .with_fontsize(14.0)
+            .with_fontsize(self.font_size)
             .with_syntax(syntax::icmc())
             .with_theme(color_theme)
             .with_numlines(true)
