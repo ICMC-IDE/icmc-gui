@@ -156,7 +156,7 @@ impl ViewState for StatePanel {
         }
 
         ui.add(
-            egui::Slider::new(&mut *freq, 1.0..=10_000_000.0)
+            egui::Slider::new(&mut *freq, 1.0..=12_000_000.0)
                 .logarithmic(true)
                 .custom_formatter(|f, _| {
                     let (f_value, f_unit) = if f >= 1_000_000.0 {
