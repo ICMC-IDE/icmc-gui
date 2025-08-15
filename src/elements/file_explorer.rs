@@ -38,30 +38,41 @@ impl ViewState for FileExplorer {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, _ctx: &mut egui::Context) {
         let paths: Vec<std::path::PathBuf> = self.entries.iter().map(|e| e.path()).collect();
 
-        if ui.button("Add File").clicked() {
-            #[cfg(target_arch = "wasm32")]
-            {
-                wasm_bindgen_futures::spawn_local(async {
-                    if let Some(path) = rfd::AsyncFileDialog::new().pick_file().await {
-                        let file_name = path.file_name();
-                        let data = path.read();
-                    }
-                });
-            }
+        ui.horizontal(|ui| {
+            if ui.button("Add File").clicked() {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    wasm_bindgen_futures::spawn_local(async {
+                        if let Some(path) = rfd::AsyncFileDialog::new().pick_file().await {
+                            let file_name = path.file_name();
+                            let data = path.read();
+                        }
+                    });
+                }
 
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    let dest = self.current_path.join(path.file_name().unwrap_or_default());
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if let Some(path) = rfd::FileDialog::new().pick_file() {
+                        let dest = self.current_path.join(path.file_name().unwrap_or_default());
 
-                    if let Err(e) = std::fs::copy(&path, &dest) {
-                        eprintln!("Couldn't copy file: {}", e);
-                    } else {
-                        self.entries = Self::read_dir(&self.current_path);
+                        if let Err(e) = std::fs::copy(&path, &dest) {
+                            eprintln!("Couldn't copy file: {}", e);
+                        } else {
+                            self.entries = Self::read_dir(&self.current_path);
+                        }
                     }
                 }
             }
-        }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            if ui.button("Change workspace directory").clicked() {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    self.root_path = path.clone();
+                    self.current_path = path.clone();
+                    self.entries = Self::read_dir(&self.root_path);
+                }
+            }
+        });
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             for path in paths {

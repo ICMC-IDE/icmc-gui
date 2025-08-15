@@ -183,9 +183,9 @@ impl IdeApp {
         };
         let example_path = match root_path {
             Some(ref root_path) => {
-                PathBuf::from(format!("{}main.asm", root_path.clone().display()))
+                PathBuf::from(format!("{}example.asm", root_path.clone().display()))
             }
-            None => PathBuf::from("main.asm"),
+            None => PathBuf::from("example.asm"),
         };
 
         let binding = fs.clone();
