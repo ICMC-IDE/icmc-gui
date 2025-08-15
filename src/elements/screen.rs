@@ -95,7 +95,7 @@ impl ScrCanvas {
             gl.vertex_attrib_divisor(1, 1);
 
             let charmap_tex_buf = include_bytes!("../../res/charmap_tex.bin");
-			let texture = gl.create_texture().expect("Cannot create texture");
+            let texture = gl.create_texture().expect("Cannot create texture");
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,

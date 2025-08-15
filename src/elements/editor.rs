@@ -1,6 +1,7 @@
 use core::f32;
 
 use super::ViewState;
+use crate::resources::syntax;
 use crate::State;
 use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 use egui_dock::egui;
@@ -91,17 +92,20 @@ impl ViewState for Editor {
             }
         });
 
-        let color_theme = match ui.visuals().dark_mode {
-            true => ColorTheme::GITHUB_DARK,
-            false => ColorTheme::GITHUB_LIGHT,
+        let color_theme = if ui.visuals().dark_mode {
+            ColorTheme::GITHUB_DARK
+        } else {
+            ColorTheme::GITHUB_LIGHT
         };
+
+        use std::collections::BTreeSet;
 
         CodeEditor::default()
             .id_source("asm_editor")
             .with_rows(0)
             .with_fontsize(14.0)
+            .with_syntax(syntax::icmc())
             .with_theme(color_theme)
-            .with_syntax(Syntax::asm())
             .with_numlines(true)
             .show(ui, code_buf);
     }
