@@ -221,11 +221,15 @@ impl ViewState for Editor {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("-").clicked() {
+                if ui.button("Reset font size").clicked() {
+                    self.font_size = 14.0;
+                }
+
+                if ui.button("-").clicked() && self.font_size >= 4.0 {
                     self.font_size -= 2.0;
                 }
 
-                if ui.button("+").clicked() {
+                if ui.button("+").clicked() && self.font_size <= 64.0 {
                     self.font_size += 2.0;
                 }
 
