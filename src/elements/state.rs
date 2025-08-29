@@ -1,5 +1,5 @@
 use super::ViewState;
-use crate::State;
+use crate::{resources::radix::Radix, State};
 use egui_dock::egui;
 use std::sync::{atomic::Ordering, Arc};
 
@@ -8,6 +8,17 @@ pub struct StatePanel;
 impl Default for StatePanel {
     fn default() -> Self {
         Self {}
+    }
+}
+
+impl StatePanel {
+    fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: &'a Radix) -> egui::DragValue<'a> {
+        match radix {
+            Radix::Binary => dv.binary(8, false),
+            Radix::Decimal => dv,
+            Radix::Hex => dv.hexadecimal(4, false, true),
+            Radix::Octal => dv.octal(6, false),
+        }
     }
 }
 
@@ -177,38 +188,62 @@ impl ViewState for StatePanel {
             ui.horizontal(|ui| {
                 for i in 0..4 {
                     ui.label(format!("R{}: ", i));
-                    ui.add(egui::DragValue::new(emu.reg_as_mut_ref(i)).hexadecimal(4, false, true));
+                    ui.add(Self::reg_fmt(
+                        egui::DragValue::new(emu.reg_as_mut_ref(i)),
+                        state.radix,
+                    ));
                 }
             });
 
             ui.horizontal(|ui| {
                 for i in 4..8 {
                     ui.label(format!("R{}: ", i));
-                    ui.add(egui::DragValue::new(emu.reg_as_mut_ref(i)).hexadecimal(4, false, true));
+                    ui.add(Self::reg_fmt(
+                        egui::DragValue::new(emu.reg_as_mut_ref(i)),
+                        state.radix,
+                    ));
                 }
             });
 
             ui.label("Internal Registers");
             ui.horizontal(|ui| {
                 ui.label(format!("FR: "));
-                ui.add(egui::DragValue::new(emu.fr_as_mut_ref()).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.fr_as_mut_ref()),
+                    state.radix,
+                ));
 
                 ui.label(format!("SP: "));
-                ui.add(egui::DragValue::new(emu.sp_as_mut_ref()).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.sp_as_mut_ref()),
+                    state.radix,
+                ));
 
                 ui.label(format!("PC: "));
-                ui.add(egui::DragValue::new(emu.pc_as_mut_ref()).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.pc_as_mut_ref()),
+                    state.radix,
+                ));
 
                 ui.label(format!("IR: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(3)).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.ireg_as_mut_ref(3)),
+                    state.radix,
+                ));
             });
 
             ui.horizontal(|ui| {
                 ui.label(format!("KB: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(4)).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.ireg_as_mut_ref(4)),
+                    state.radix,
+                ));
 
                 ui.label(format!("WC: "));
-                ui.add(egui::DragValue::new(emu.ireg_as_mut_ref(5)).hexadecimal(4, false, true));
+                ui.add(Self::reg_fmt(
+                    egui::DragValue::new(emu.ireg_as_mut_ref(5)),
+                    state.radix,
+                ));
             });
         } else {
             ui.label("Registers: (emulator busy)");
