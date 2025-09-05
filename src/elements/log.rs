@@ -2,19 +2,10 @@ use super::ViewState;
 use crate::State;
 use egui_dock::egui;
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct LogPanel {
     logs: Vec<String>,
     auto_scroll: bool,
-}
-
-impl Default for LogPanel {
-    fn default() -> Self {
-        Self {
-            logs: Vec::new(),
-            auto_scroll: false,
-        }
-    }
 }
 
 impl LogPanel {

@@ -2,14 +2,15 @@ use crate::elements::{
     Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel, View, ViewState,
 };
 use crate::resources::radix::Radix;
+use crate::resources::settings::Settings;
 use egui_dock::dock_state::tree::Split;
 use egui_dock::tab_viewer::OnCloseResponse;
-use egui_dock::{egui, DockArea, DockState, NodeIndex, Style, SurfaceIndex};
+use egui_dock::{DockArea, DockState, NodeIndex, Style, SurfaceIndex, egui};
 use icmc_emulator::Emulator;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     thread::JoinHandle,
 };
 
@@ -25,7 +26,7 @@ pub struct State<'a> {
     pub mem_editor: Arc<Mutex<MemEditor>>,
     pub ide_path: &'a mut Option<PathBuf>,
     pub open_file: &'a mut Option<PathBuf>,
-    pub radix: &'a mut Radix,
+    pub settings: &'a mut Settings,
 }
 
 /* Tab manager */
@@ -118,7 +119,8 @@ pub struct IdeApp {
     code_buf: Option<String>,
     ide_path: Option<PathBuf>,
     open_file: Option<PathBuf>,
-    radix: Radix,
+
+    settings: Settings,
 
     /* Elements */
     editor: Editor,
@@ -212,7 +214,8 @@ impl IdeApp {
             code_buf: None,
             ide_path: ide_path.clone(),
             open_file: Some(example_path),
-            radix: Radix::default().into(),
+
+            settings: Default::default(),
 
             editor: Editor::default(),
             doc: Documentation::default(),
@@ -306,10 +309,10 @@ impl IdeApp {
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
                 ui.menu_button("Radix", |ui| {
-                    ui.selectable_value(&mut self.radix, Radix::Binary, "Binary");
-                    ui.selectable_value(&mut self.radix, Radix::Decimal, "Decimal");
-                    ui.selectable_value(&mut self.radix, Radix::Hex, "Hexadecimal");
-                    ui.selectable_value(&mut self.radix, Radix::Octal, "Octal");
+                    ui.selectable_value(&mut self.settings.radix, Radix::Binary, "Binary");
+                    ui.selectable_value(&mut self.settings.radix, Radix::Decimal, "Decimal");
+                    ui.selectable_value(&mut self.settings.radix, Radix::Hex, "Hexadecimal");
+                    ui.selectable_value(&mut self.settings.radix, Radix::Octal, "Octal");
                 });
             });
         });
@@ -343,7 +346,7 @@ impl eframe::App for IdeApp {
             mem_editor: self.mem_editor.clone(),
             ide_path: &mut self.ide_path,
             open_file: &mut self.open_file,
-            radix: &mut self.radix,
+            settings: &mut self.settings,
         };
 
         let mut tab_viewer = TabViewer {

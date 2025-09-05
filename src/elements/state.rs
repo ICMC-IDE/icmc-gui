@@ -1,18 +1,13 @@
 use super::ViewState;
-use crate::{resources::radix::Radix, State};
+use crate::{State, resources::radix::Radix};
 use egui_dock::egui;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
+#[derive(Default)]
 pub struct StatePanel;
 
-impl Default for StatePanel {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
 impl StatePanel {
-    fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: &'a Radix) -> egui::DragValue<'a> {
+    fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: Radix) -> egui::DragValue<'a> {
         match radix {
             Radix::Binary => dv.binary(8, false),
             Radix::Decimal => dv,
@@ -190,7 +185,7 @@ impl ViewState for StatePanel {
                     ui.label(format!("R{}: ", i));
                     ui.add(Self::reg_fmt(
                         egui::DragValue::new(emu.reg_as_mut_ref(i)),
-                        state.radix,
+                        state.settings.radix,
                     ));
                 }
             });
@@ -200,7 +195,7 @@ impl ViewState for StatePanel {
                     ui.label(format!("R{}: ", i));
                     ui.add(Self::reg_fmt(
                         egui::DragValue::new(emu.reg_as_mut_ref(i)),
-                        state.radix,
+                        state.settings.radix,
                     ));
                 }
             });
@@ -210,25 +205,25 @@ impl ViewState for StatePanel {
                 ui.label(format!("FR: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.fr_as_mut_ref()),
-                    state.radix,
+                    state.settings.radix,
                 ));
 
                 ui.label(format!("SP: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.sp_as_mut_ref()),
-                    state.radix,
+                    state.settings.radix,
                 ));
 
                 ui.label(format!("PC: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.pc_as_mut_ref()),
-                    state.radix,
+                    state.settings.radix,
                 ));
 
                 ui.label(format!("IR: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.ireg_as_mut_ref(3)),
-                    state.radix,
+                    state.settings.radix,
                 ));
             });
 
@@ -236,13 +231,13 @@ impl ViewState for StatePanel {
                 ui.label(format!("KB: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.ireg_as_mut_ref(4)),
-                    state.radix,
+                    state.settings.radix,
                 ));
 
                 ui.label(format!("WC: "));
                 ui.add(Self::reg_fmt(
                     egui::DragValue::new(emu.ireg_as_mut_ref(5)),
-                    state.radix,
+                    state.settings.radix,
                 ));
             });
         } else {

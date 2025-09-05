@@ -1,21 +1,14 @@
 use core::f32;
 
 use super::ViewState;
-use crate::resources::syntax;
 use crate::State;
+use crate::resources::syntax;
 use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 use egui_dock::egui;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
-pub struct Editor {
-    font_size: f32,
-}
-
-impl Default for Editor {
-    fn default() -> Self {
-        Self { font_size: 14.0 }
-    }
-}
+#[derive(Default)]
+pub struct Editor;
 
 impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
@@ -222,15 +215,15 @@ impl ViewState for Editor {
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Reset font size").clicked() {
-                    self.font_size = 14.0;
+                    state.settings.font_size = 14.0;
                 }
 
-                if ui.button("-").clicked() && self.font_size >= 4.0 {
-                    self.font_size -= 2.0;
+                if ui.button("-").clicked() && state.settings.font_size >= 4.0 {
+                    state.settings.font_size -= 2.0;
                 }
 
-                if ui.button("+").clicked() && self.font_size <= 64.0 {
-                    self.font_size += 2.0;
+                if ui.button("+").clicked() && state.settings.font_size <= 64.0 {
+                    state.settings.font_size += 2.0;
                 }
 
                 ui.label("Font size:");
@@ -248,7 +241,7 @@ impl ViewState for Editor {
         CodeEditor::default()
             .id_source("asm_editor")
             .with_rows(0)
-            .with_fontsize(self.font_size)
+            .with_fontsize(state.settings.font_size)
             .with_syntax(syntax::icmc())
             .with_theme(color_theme)
             .with_numlines(true)

@@ -16,13 +16,8 @@ enum Row {
     },
 }
 
+#[derive(Default)]
 pub struct Documentation;
-
-impl Default for Documentation {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 impl View for Documentation {
     fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut egui::Context) {

@@ -1,13 +1,8 @@
-#[derive(PartialEq)]
+#[derive(Default, Clone, Copy, PartialEq)]
 pub enum Radix {
     Binary,
     Decimal,
+    #[default]
     Hex,
     Octal,
-}
-
-impl Default for Radix {
-    fn default() -> Self {
-        Self::Hex
-    }
 }
