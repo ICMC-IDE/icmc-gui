@@ -34,6 +34,13 @@ impl ScrCanvas {
                 .expect("Cannot create vertex shader");
             gl.shader_source(vs, vertex_shader_source);
             gl.compile_shader(vs);
+
+            if !gl.get_shader_compile_status(vs) {
+                let info = gl.get_shader_info_log(vs);
+                println!("Vertex shader error: {}", info);
+                panic!("Couldn't compile vertex shader");
+            }
+
             gl.attach_shader(program, vs);
 
             let fs = gl
@@ -41,6 +48,13 @@ impl ScrCanvas {
                 .expect("Cannot create fragment shader");
             gl.shader_source(fs, fragment_shader_source);
             gl.compile_shader(fs);
+
+            if !gl.get_shader_compile_status(fs) {
+                let info = gl.get_shader_info_log(fs);
+                println!("Fragment shader error : {}", info);
+                panic!("Coudln't compile fragment shader");
+            }
+
             gl.attach_shader(program, fs);
 
             gl.link_program(program);
@@ -156,6 +170,7 @@ impl ScrCanvas {
 
         unsafe {
             gl.use_program(Some(self.program));
+
             gl.bind_vertex_array(Some(self.vao));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.instance_vbo));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vram, glow::STATIC_DRAW);
@@ -168,7 +183,8 @@ impl ScrCanvas {
                 self.cols,
             );
             gl.uniform_2_u32(
-                gl.get_uniform_location(self.program, "char_res").as_ref(),
+                gl.get_uniform_location(self.program, "character_res")
+                    .as_ref(),
                 self.char_width,
                 self.char_height,
             );
