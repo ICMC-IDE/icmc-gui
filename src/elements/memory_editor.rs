@@ -2,7 +2,7 @@ use super::ViewState;
 use crate::State;
 use egui_dock::egui;
 use std::char::decode_utf16;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 

@@ -51,7 +51,31 @@ impl ViewState for Editor {
             if ui.button("Build and Run").clicked() {
                 #[cfg(target_family = "wasm")]
                 {
-                    todo!("Need to implement JS wrapper to fs.js");
+                    let mut emu = state.emulator.lock().unwrap();
+
+                    /* testing */
+                    match assembler::assemble_from_buf(
+                        code_buf,
+                        include_str!("../../res/icmc.toml"),
+                    ) {
+                        Ok(asm) => {
+                            emu.load(&asm.binary());
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel
+                                    .add_log("Assembly successful! Binary loaded.".to_string());
+                            }
+                        }
+                        Err(err) => {
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel.add_log(format!("Assembly error: {}", err));
+
+                                if let Some((line, col)) = extract_line_column(&err) {
+                                    log_panel
+                                        .add_log(format!("    at line {}, column {}", line, col));
+                                }
+                            }
+                        }
+                    }
                 }
 
                 #[cfg(not(target_family = "wasm"))]
@@ -105,107 +129,106 @@ impl ViewState for Editor {
                             }
                         }
                     }
+                }
 
-                    let freq = Arc::clone(&state.freq);
-                    let emu = Arc::clone(&state.emulator);
-                    let ctx = ctx.clone();
+                let freq = Arc::clone(&state.freq);
+                let emu = Arc::clone(&state.emulator);
+                let ctx = ctx.clone();
 
-                    let running = Arc::clone(&state.running);
+                let running = Arc::clone(&state.running);
+
+                running.store(true, Ordering::SeqCst);
+
+                /* TODO: improve thread communcation with std::sync::mpsc */
+
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    use std::thread;
+                    use std::time::{Duration, Instant};
+
+                    *state.emu_handle = Some(thread::spawn(move || {
+                        while running.load(Ordering::SeqCst) {
+                            let start = Instant::now();
+
+                            {
+                                let mut emu = emu.lock().unwrap();
+
+                                /* Stop if emulator is halted */
+                                if emu.state() == icmc_emulator::State::Halted {
+                                    running.store(false, Ordering::SeqCst);
+                                }
+
+                                emu.next();
+                            }
+
+                            /* ensure that egui doesn't stop rendering */
+                            ctx.request_repaint();
+
+                            let freq_val = {
+                                let f = freq.lock().unwrap();
+                                *f
+                            };
+
+                            let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
+                            let elapsed = start.elapsed();
+
+                            if elapsed < sleep_time {
+                                thread::sleep(sleep_time - elapsed);
+                            }
+                        }
+                    }));
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    use gloo_timers::future::TimeoutFuture;
+                    use std::cell::RefCell;
+                    use std::rc::Rc;
+                    use wasm_bindgen_futures::spawn_local;
+
+                    fn performance_now() -> f64 {
+                        web_sys::window().unwrap().performance().unwrap().now()
+                    }
 
                     running.store(true, Ordering::SeqCst);
 
-                    /* TODO: improve thread communcation with std::sync::mpsc */
+                    let ticks_pending = Rc::new(RefCell::new(0.0));
+                    let last_tick = Rc::new(RefCell::new(performance_now()));
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        use std::thread;
-                        use std::time::{Duration, Instant};
+                    spawn_local(async move {
+                        while running.load(Ordering::SeqCst) {
+                            let now = performance_now();
+                            let elapsed = now - *last_tick.borrow();
+                            *last_tick.borrow_mut() = now;
 
-                        *state.emu_handle = Some(thread::spawn(move || {
-                            while running.load(Ordering::SeqCst) {
-                                let start = Instant::now();
+                            let freq_val = {
+                                let f = freq.lock().unwrap();
+                                *f
+                            };
 
-                                {
-                                    let mut emu = emu.lock().unwrap();
+                            *ticks_pending.borrow_mut() += elapsed * freq_val * 1e-3;
 
-                                    /* Stop if emulator is halted */
-                                    if emu.state() == icmc_emulator::State::Halted {
-                                        running.store(false, Ordering::SeqCst);
-                                    }
-
-                                    emu.next();
-                                }
-
-                                /* ensure that egui doesn't stop rendering */
-                                ctx.request_repaint();
-
-                                let freq_val = {
-                                    let f = freq.lock().unwrap();
-                                    *f
-                                };
-
-                                let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
-                                let elapsed = start.elapsed();
-
-                                if elapsed < sleep_time {
-                                    thread::sleep(sleep_time - elapsed);
-                                }
+                            if *ticks_pending.borrow() > 1_000_000.0 {
+                                *ticks_pending.borrow_mut() = 1_000_000.0;
                             }
-                        }));
-                    }
 
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        use gloo_timers::future::TimeoutFuture;
-                        use std::cell::RefCell;
-                        use std::rc::Rc;
-                        use wasm_bindgen_futures::spawn_local;
+                            {
+                                let mut emu = emu.lock().unwrap();
 
-                        fn performance_now() -> f64 {
-                            web_sys::window().unwrap().performance().unwrap().now()
+                                if emu.state() == icmc_emulator::State::Halted {
+                                    running.store(false, Ordering::SeqCst);
+                                    break;
+                                }
+
+                                let ticks_done = emu.tick(*ticks_pending.borrow() as isize) as f64;
+                                *ticks_pending.borrow_mut() -= ticks_done;
+                            }
+
+                            ctx.request_repaint();
+
+                            TimeoutFuture::new(0).await;
                         }
-
-                        running.store(true, Ordering::SeqCst);
-
-                        let ticks_pending = Rc::new(RefCell::new(0.0));
-                        let last_tick = Rc::new(RefCell::new(performance_now()));
-
-                        spawn_local(async move {
-                            while running.load(Ordering::SeqCst) {
-                                let now = performance_now();
-                                let elapsed = now - *last_tick.borrow();
-                                *last_tick.borrow_mut() = now;
-
-                                let freq_val = {
-                                    let f = freq.lock().unwrap();
-                                    *f
-                                };
-
-                                *ticks_pending.borrow_mut() += elapsed * freq_val * 1e-3;
-
-                                if *ticks_pending.borrow() > 1_000_000.0 {
-                                    *ticks_pending.borrow_mut() = 1_000_000.0;
-                                }
-
-                                {
-                                    let mut emu = emu.lock().unwrap();
-
-                                    if emu.state() == icmc_emulator::State::Halted {
-                                        running.store(false, Ordering::SeqCst);
-                                        break;
-                                    }
-
-                                    let ticks_done =
-                                        emu.tick(*ticks_pending.borrow() as isize) as f64;
-                                    *ticks_pending.borrow_mut() -= ticks_done;
-                                }
-
-                                ctx.request_repaint();
-
-                                TimeoutFuture::new(0).await;
-                            }
-                        });
-                    }
+                    });
                 }
             }
 

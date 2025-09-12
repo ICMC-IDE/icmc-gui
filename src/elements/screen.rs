@@ -25,7 +25,16 @@ impl ScrCanvas {
         use glow::HasContext as _;
 
         unsafe {
+            #[cfg(target_arch = "wasm32")]
+            let vertex_shader_source = include_str!("../../res/shaders/vertex_es.glsl");
+
+            #[cfg(target_arch = "wasm32")]
+            let fragment_shader_source = include_str!("../../res/shaders/fragment_es.glsl");
+
+            #[cfg(not(target_arch = "wasm32"))]
             let vertex_shader_source = include_str!("../../res/shaders/vertex.glsl");
+
+            #[cfg(not(target_arch = "wasm32"))]
             let fragment_shader_source = include_str!("../../res/shaders/fragment.glsl");
 
             let program = gl.create_program().expect("Cannot create program");
@@ -37,8 +46,7 @@ impl ScrCanvas {
 
             if !gl.get_shader_compile_status(vs) {
                 let info = gl.get_shader_info_log(vs);
-                println!("Vertex shader error: {}", info);
-                panic!("Couldn't compile vertex shader");
+                panic!("Couldn't compile vertex shader: {}", info);
             }
 
             gl.attach_shader(program, vs);
@@ -51,8 +59,7 @@ impl ScrCanvas {
 
             if !gl.get_shader_compile_status(fs) {
                 let info = gl.get_shader_info_log(fs);
-                println!("Fragment shader error : {}", info);
-                panic!("Coudln't compile fragment shader");
+                panic!("Coudldn't compile fragment shader: {}", info);
             }
 
             gl.attach_shader(program, fs);
