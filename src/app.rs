@@ -1,8 +1,7 @@
 use crate::elements::{
     Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel, View, ViewState,
 };
-use crate::resources::radix::Radix;
-use crate::resources::settings::Settings;
+use crate::resources::{radix::Radix, settings::Settings};
 use egui_dock::dock_state::tree::Split;
 use egui_dock::tab_viewer::OnCloseResponse;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, SurfaceIndex, egui};
@@ -42,6 +41,16 @@ pub struct TabViewer<'a> {
     ctx: &'a mut egui::Context,
     open_tabs: &'a mut HashSet<String>,
     state: &'a mut State<'a>,
+    tree: &'a mut DockState<String>,
+}
+
+impl TabViewer<'_> {
+    fn focused_tab(&mut self) -> Option<String> {
+        let Some((_, tab)) = self.tree.find_active_focused() else {
+            return None;
+        };
+        Some(tab.to_string())
+    }
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
@@ -52,10 +61,15 @@ impl egui_dock::TabViewer for TabViewer<'_> {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+        if let Some(focused) = self.focused_tab() {
+            self.state.settings.input_enabled = &focused == "Screen";
+        }
+
         match tab.as_str() {
             "Screen" => {
                 let screen = &mut self.screen;
                 let state = &mut self.state;
+
                 screen.ui(ui, state, self.ctx);
             }
 
@@ -358,6 +372,7 @@ impl eframe::App for IdeApp {
             ctx: &mut ctx.clone(),
             open_tabs: &mut self.open_tabs,
             state: &mut state,
+            tree: &mut self.tree.clone(),
             log_panel: self.log_panel.clone(),
             mem_editor: self.mem_editor.clone(),
         };

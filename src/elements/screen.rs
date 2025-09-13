@@ -1,5 +1,5 @@
 use super::ViewState;
-use crate::State;
+use crate::{State, resources::keyboard::keycode};
 use eframe::{egui_glow, glow};
 use egui_dock::egui;
 use std::sync::{Arc, Mutex};
@@ -263,7 +263,28 @@ impl Screen {
 
 /* todo: render charmap into canvas */
 impl ViewState for Screen {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, _ctx: &mut egui::Context) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
+        /* handle keyboard input */
+        if state.settings.input_enabled {
+            ctx.input(|i| {
+                for key in egui::Key::ALL {
+                    if i.key_pressed(*key) {
+                        let keycode = keycode(key);
+                        let mut emu = state.emulator.lock().unwrap();
+
+                        *emu.ireg_as_mut_ref(0x4) = keycode;
+                    }
+
+                    if i.key_released(*key) {
+                        let keycode = keycode(key);
+                        let mut emu = state.emulator.lock().unwrap();
+
+                        *emu.ireg_as_mut_ref(0x4) = 0xff;
+                    }
+                }
+            });
+        }
+
         ui.add_space(10.0);
         ui.vertical_centered(|ui| {
             egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
