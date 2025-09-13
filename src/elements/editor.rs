@@ -249,7 +249,7 @@ impl ViewState for Editor {
                     state.settings.font_size += 2.0;
                 }
 
-                ui.label("Font size:");
+                ui.label(format!("Font size: {} pt", state.settings.font_size));
             });
         });
 
