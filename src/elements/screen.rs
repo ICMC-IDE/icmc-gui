@@ -272,7 +272,11 @@ impl ViewState for Screen {
                         let keycode = keycode(key);
                         let mut emu = state.emulator.lock().unwrap();
 
-                        *emu.ireg_as_mut_ref(0x4) = keycode;
+                        *emu.ireg_as_mut_ref(0x4) = if i.modifiers.shift {
+                            keycode
+                        } else {
+                            keycode + 32
+                        }
                     }
 
                     if i.key_released(*key) {
