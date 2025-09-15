@@ -51,37 +51,46 @@ impl ViewState for Editor {
             if ui.button("Build and Run").clicked() {
                 #[cfg(target_family = "wasm")]
                 {
-                    let mut emu = state.emulator.lock().unwrap();
-
                     /* testing */
-                    match assembler::assemble_from_buf(
-                        code_buf,
-                        include_str!("../../res/icmc.toml"),
-                    ) {
-                        Ok(asm) => {
-                            emu.load(&asm.binary());
-                            if let Ok(mut log_panel) = state.log_panel.lock() {
-                                log_panel
-                                    .add_log("Assembly successful! Binary loaded.".to_string());
-                            }
-                        }
-                        Err(err) => {
-                            if let Ok(mut log_panel) = state.log_panel.lock() {
-                                log_panel.add_log(format!("Assembly error: {}", err));
+                    if let Err(asm_res) = std::panic::catch_unwind(|| {
+                        match assembler::assemble_from_buf(
+                            code_buf,
+                            include_str!("../../res/icmc.toml"),
+                        ) {
+                            Ok(asm) => {
+                                let mut emu = state.emulator.lock().unwrap();
 
-                                if let Some((line, col)) = extract_line_column(&err) {
+                                emu.load(&asm.binary());
+                                if let Ok(mut log_panel) = state.log_panel.lock() {
                                     log_panel
-                                        .add_log(format!("    at line {}, column {}", line, col));
+                                        .add_log("Assembly successful! Binary loaded.".to_string());
+                                }
+                            }
+                            Err(err) => {
+                                if let Ok(mut log_panel) = state.log_panel.lock() {
+                                    log_panel.add_log(format!("Assembly error: {}", err));
+
+                                    if let Some((line, col)) = extract_line_column(&err) {
+                                        log_panel.add_log(format!(
+                                            "    at line {}, column {}",
+                                            line, col
+                                        ));
+                                    }
                                 }
                             }
                         }
+                    }) {
+                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                            log_panel.add_log("Assembly error: syntax error".to_string());
+                        }
+
+                        return;
                     }
                 }
 
                 #[cfg(not(target_family = "wasm"))]
                 {
                     let mut fs = state.fs.lock().unwrap();
-                    let mut emu = state.emulator.lock().unwrap();
                     let icmc_syntax = include_str!("../../res/icmc.toml");
 
                     let syntax_path =
@@ -110,24 +119,36 @@ impl ViewState for Editor {
                         log_panel.auto_scroll();
                     }
 
-                    match assembler::assemble(&fs, open_file, syntax_path) {
-                        Ok(asm) => {
-                            emu.load(&asm.binary());
-                            if let Ok(mut log_panel) = state.log_panel.lock() {
-                                log_panel
-                                    .add_log("Assembly successful! Binary loaded.".to_string());
-                            }
-                        }
-                        Err(err) => {
-                            if let Ok(mut log_panel) = state.log_panel.lock() {
-                                log_panel.add_log(format!("Assembly error: {}", err));
+                    if let Err(asm_res) = std::panic::catch_unwind(|| {
+                        match assembler::assemble(&fs, open_file, syntax_path) {
+                            Ok(asm) => {
+                                let mut emu = state.emulator.lock().unwrap();
 
-                                if let Some((line, col)) = extract_line_column(&err) {
+                                emu.load(&asm.binary());
+                                if let Ok(mut log_panel) = state.log_panel.lock() {
                                     log_panel
-                                        .add_log(format!("    at line {}, column {}", line, col));
+                                        .add_log("Assembly successful! Binary loaded.".to_string());
+                                }
+                            }
+                            Err(err) => {
+                                if let Ok(mut log_panel) = state.log_panel.lock() {
+                                    log_panel.add_log(format!("Assembly error: {}", err));
+
+                                    if let Some((line, col)) = extract_line_column(&err) {
+                                        log_panel.add_log(format!(
+                                            "    at line {}, column {}",
+                                            line, col
+                                        ));
+                                    }
                                 }
                             }
                         }
+                    }) {
+                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                            log_panel.add_log("Assembly error: syntax error".to_string());
+                        }
+
+                        return;
                     }
                 }
 

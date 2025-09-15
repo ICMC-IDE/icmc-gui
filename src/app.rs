@@ -152,6 +152,9 @@ impl IdeApp {
         let mut nodes = HashMap::new();
         nodes.insert("Code Editor".to_owned(), NodeIndex::root());
 
+        /* supress assembler panics */
+        std::panic::set_hook(Box::new(|_info| {}));
+
         let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
         let fs = Arc::new(Mutex::new(fs::Fs::new()));
         let freq = Arc::new(Mutex::new(1.0));
