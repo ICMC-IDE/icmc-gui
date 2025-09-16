@@ -199,16 +199,24 @@ impl IdeApp {
             }
         }
 
-        let root_path = match ide_path {
-            Some(ref path) => Some(PathBuf::from(format!("{}workspace/", path.display()))),
-            None => None,
-        };
-        let example_path = match root_path {
-            Some(ref root_path) => {
-                PathBuf::from(format!("{}example.asm", root_path.clone().display()))
-            }
-            None => PathBuf::from("example.asm"),
-        };
+        let root_path = ide_path
+            .as_ref()
+            .map(|path| PathBuf::from(path).join("workspace"));
+
+        let example_path = root_path
+            .as_ref()
+            .map(|root| root.join("example.asm"))
+            .unwrap_or_else(|| PathBuf::from("example.asm"));
+
+        let settings_path = ide_path
+            .as_ref()
+            .map(|path| PathBuf::from(path).join("settings.toml"));
+
+        let settings = settings_path
+            .as_ref()
+            .and_then(|path| std::fs::read_to_string(path).ok())
+            .and_then(|toml_str| toml::from_str(&toml_str).ok())
+            .unwrap_or_default();
 
         let binding = fs.clone();
         let mut fs_unlock = binding.lock().unwrap();
@@ -232,7 +240,7 @@ impl IdeApp {
             ide_path: ide_path.clone(),
             open_file: Some(example_path),
 
-            settings: Default::default(),
+            settings,
 
             editor: Editor::default(),
             doc: Documentation::default(),
@@ -271,6 +279,10 @@ impl IdeApp {
                 "Documentation",
                 "Memory Editor",
             ] {
+                if cfg!(target_arch = "wasm32") && tab == &"File Explorer" {
+                    continue;
+                }
+
                 let is_open = self.open_tabs.contains(*tab);
 
                 if ui.selectable_label(is_open, *tab).clicked() {
@@ -351,6 +363,24 @@ impl eframe::App for IdeApp {
         egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
             self.bar_contents(ui, frame);
         });
+
+        /* save altered settings to file */
+        if self.settings.needs_save {
+            let toml = toml::to_string(&self.settings).unwrap();
+
+            if let Some(path) = self.ide_path.clone() {
+                match std::fs::write(format!("{}/settings.toml", path.display()), toml) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        println!("Couldn't write settings.toml");
+                    }
+                };
+            } else {
+                println!("Couldn't find path");
+            }
+
+            self.settings.clear_save_flag();
+        }
 
         let mut state = State {
             emulator: self.emulator.clone(),

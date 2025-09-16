@@ -66,16 +66,9 @@ impl ViewState for Editor {
                                         .add_log("Assembly successful! Binary loaded.".to_string());
                                 }
                             }
-                            Err(err) => {
+                            Err(_) => {
                                 if let Ok(mut log_panel) = state.log_panel.lock() {
-                                    log_panel.add_log(format!("Assembly error: {}", err));
-
-                                    if let Some((line, col)) = extract_line_column(&err) {
-                                        log_panel.add_log(format!(
-                                            "    at line {}, column {}",
-                                            line, col
-                                        ));
-                                    }
+                                    log_panel.add_log("Assembly error: syntax error".to_string());
                                 }
                             }
                         }
