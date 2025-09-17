@@ -39,7 +39,28 @@ impl ViewState for FileExplorer {
         let paths: Vec<std::path::PathBuf> = self.entries.iter().map(|e| e.path()).collect();
 
         ui.horizontal(|ui| {
-            if ui.button("Add File").clicked() {
+            if ui.button("New File").clicked() {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    unreachable!();
+                }
+
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_directory(self.current_path.clone())
+                        .save_file()
+                    {
+                        if let Err(e) = std::fs::File::create(path) {
+                            eprintln!("Couldn't create file: {}", e);
+                        } else {
+                            self.entries = Self::read_dir(&self.current_path);
+                        }
+                    }
+                }
+            }
+
+            if ui.button("Open File").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
                     wasm_bindgen_futures::spawn_local(async {
