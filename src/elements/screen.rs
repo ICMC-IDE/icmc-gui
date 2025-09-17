@@ -314,10 +314,10 @@ impl ViewState for Screen {
                         let keycode = keycode(key);
                         let mut emu = state.emulator.lock().unwrap();
 
-                        *emu.ireg_as_mut_ref(0x4) = if i.modifiers.shift {
-                            keycode
-                        } else {
+                        *emu.ireg_as_mut_ref(0x4) = if !i.modifiers.shift && keycode >= 65 && keycode <= 90 {
                             keycode + 32
+                        } else {
+                            keycode
                         }
                     }
 
