@@ -1,5 +1,5 @@
 use super::ViewState;
-use crate::{State, resources::keyboard::keycode};
+use crate::{State, resources::charmap::Charmap, resources::keyboard::keycode};
 use eframe::{egui_glow, glow};
 use egui_dock::egui;
 use std::sync::{Arc, Mutex};
@@ -21,7 +21,7 @@ pub struct Screen {
 }
 
 impl ScrCanvas {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &glow::Context, charmap: &Charmap) -> Self {
         use glow::HasContext as _;
 
         unsafe {
@@ -115,7 +115,6 @@ impl ScrCanvas {
             gl.vertex_attrib_pointer_i32(1, 2, glow::UNSIGNED_BYTE, 0, 0);
             gl.vertex_attrib_divisor(1, 1);
 
-            let charmap_tex_buf = include_bytes!("../../res/charmap_tex.bin");
             let texture = gl.create_texture().expect("Cannot create texture");
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             gl.tex_parameter_i32(
@@ -147,7 +146,7 @@ impl ScrCanvas {
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(Some(charmap_tex_buf)),
+                glow::PixelUnpackData::Slice(Some(charmap.pixels())),
             );
 
             Self {
@@ -172,10 +171,45 @@ impl ScrCanvas {
         }
     }
 
-    fn draw(&self, gl: &glow::Context, vram: &[u8]) {
+    fn draw(&self, gl: &glow::Context, vram: &[u8], charmap: Option<&Charmap>) {
         use glow::HasContext as _;
 
         unsafe {
+            if let Some(charmap) = charmap {
+                gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_S,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_T,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::LINEAR as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::LINEAR as i32,
+                );
+                gl.tex_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGBA as i32,
+                    2048,
+                    2048,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    glow::PixelUnpackData::Slice(Some(charmap.pixels())),
+                );
+            }
+
             gl.use_program(Some(self.program));
 
             gl.bind_vertex_array(Some(self.vao));
@@ -229,11 +263,11 @@ impl ScrCanvas {
 }
 
 impl Screen {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, charmap: &Charmap) -> Self {
         let gl = cc.gl.as_ref().expect("Context error");
 
         Self {
-            canvas: Arc::new(Mutex::new(ScrCanvas::new(gl))),
+            canvas: Arc::new(Mutex::new(ScrCanvas::new(gl, charmap))),
         }
     }
 
@@ -248,13 +282,21 @@ impl Screen {
         let vram_ptr = state.emulator.lock().unwrap().vram() as *const u8;
         let vram: &[u8] = unsafe { std::slice::from_raw_parts(vram_ptr, 0x20000) };
 
+        let charmap = if state.settings.charmap.needs_reload {
+            state.settings.charmap.needs_reload = false;
+            Some(state.settings.charmap.clone())
+        } else {
+            None
+        };
+
         let callback = egui::PaintCallback {
             rect,
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                canvas
-                    .lock()
-                    .expect("Couldn't unlock canvas")
-                    .draw(painter.gl(), vram);
+                canvas.lock().expect("Couldn't unlock canvas").draw(
+                    painter.gl(),
+                    vram,
+                    charmap.as_ref(),
+                );
             })),
         };
         ui.painter().add(callback);

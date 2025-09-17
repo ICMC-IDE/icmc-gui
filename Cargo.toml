@@ -21,6 +21,7 @@ log = "0.4"
 icmc-emulator = { git = "https://github.com/ICMC-IDE/icmc-emulator.git" }
 fs = { git = "https://github.com/ICMC-IDE/fs.git" }
 assembler = { git = "https://github.com/ICMC-IDE/assembler.git" }
+mif = { git = "https://github.com/ICMC-IDE/mif.git" }
 
 serde = { version = "1", features = ["derive"] }
 toml = "0.9.5"

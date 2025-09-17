@@ -1,5 +1,6 @@
 use crate::elements::{
-    Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel, View, ViewState,
+    CharmapEditor, Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel,
+    View, ViewState,
 };
 use crate::resources::{radix::Radix, settings::Settings};
 use egui_dock::dock_state::tree::Split;
@@ -30,6 +31,7 @@ pub struct State<'a> {
 
 /* Tab manager */
 pub struct TabViewer<'a> {
+    charmap_editor: &'a mut CharmapEditor,
     editor: &'a mut Editor,
     doc: &'a mut Documentation,
     screen: &'a mut Screen,
@@ -66,6 +68,13 @@ impl egui_dock::TabViewer for TabViewer<'_> {
         }
 
         match tab.as_str() {
+            "Charmap Editor" => {
+                let charmap_editor = &mut self.charmap_editor;
+                let state = &mut self.state;
+
+                charmap_editor.ui(ui, state, self.ctx);
+            }
+
             "Screen" => {
                 let screen = &mut self.screen;
                 let state = &mut self.state;
@@ -137,6 +146,7 @@ pub struct IdeApp {
     settings: Settings,
 
     /* Elements */
+    charmap_editor: CharmapEditor,
     editor: Editor,
     doc: Documentation,
     screen: Screen,
@@ -212,7 +222,7 @@ impl IdeApp {
             .as_ref()
             .map(|path| PathBuf::from(path).join("settings.toml"));
 
-        let settings = settings_path
+        let settings: Settings = settings_path
             .as_ref()
             .and_then(|path| std::fs::read_to_string(path).ok())
             .and_then(|toml_str| toml::from_str(&toml_str).ok())
@@ -224,6 +234,8 @@ impl IdeApp {
             example_path.to_str().unwrap(),
             include_str!("../res/example.asm").to_owned().as_bytes(),
         );
+
+        let charmap = settings.charmap.clone();
 
         Self {
             tree,
@@ -242,9 +254,10 @@ impl IdeApp {
 
             settings,
 
+            charmap_editor: CharmapEditor::default(),
             editor: Editor::default(),
             doc: Documentation::default(),
-            screen: Screen::new(cc),
+            screen: Screen::new(cc, &charmap),
             state_panel: StatePanel::default(),
             log_panel: Arc::new(Mutex::new(LogPanel::default())),
             mem_editor: Arc::new(Mutex::new(MemEditor::default())),
@@ -278,8 +291,11 @@ impl IdeApp {
                 "File Explorer",
                 "Documentation",
                 "Memory Editor",
+                "Charmap Editor",
             ] {
-                if cfg!(target_arch = "wasm32") && tab == &"File Explorer" {
+                if cfg!(target_arch = "wasm32")
+                    && (tab == &"File Explorer" || tab == &"Charmap Editor")
+                {
                     continue;
                 }
 
@@ -290,8 +306,8 @@ impl IdeApp {
                         self.tree.remove_tab(idx);
                         self.open_tabs.remove(*tab);
                     } else {
-                        if *tab == "Documentation" {
-                            self.tree.add_window(vec!["Documentation".to_owned()]);
+                        if *tab == "Documentation" || *tab == "Charmap Editor" {
+                            self.tree.add_window(vec![tab.to_string()]);
                         } else {
                             let surf = self.tree.main_surface_mut();
                             let empty_root = surf
@@ -397,6 +413,7 @@ impl eframe::App for IdeApp {
         };
 
         let mut tab_viewer = TabViewer {
+            charmap_editor: &mut self.charmap_editor,
             editor: &mut self.editor,
             doc: &mut self.doc,
             screen: &mut self.screen,

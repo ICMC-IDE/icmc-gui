@@ -1,4 +1,4 @@
-use crate::resources::radix::Radix;
+use crate::resources::{charmap::Charmap, radix::Radix};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
@@ -10,6 +10,9 @@ pub struct SettingsInner {
     pub screen_size: (u32, u32),
 
     pub radix: Radix,
+
+    #[serde(skip)]
+    pub charmap: Charmap,
 
     /* internal */
     #[serde(skip)]
@@ -32,6 +35,7 @@ impl Default for Settings {
                 font_size: 14.0,
                 screen_size: (40, 30),
                 radix: Default::default(),
+                charmap: Default::default(),
                 input_enabled: false,
             },
             needs_save: false,

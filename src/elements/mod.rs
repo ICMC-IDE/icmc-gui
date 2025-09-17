@@ -1,6 +1,7 @@
 use crate::State;
 use egui_dock::egui;
 
+pub mod charmap_editor;
 pub mod documentation;
 pub mod editor;
 pub mod file_explorer;
@@ -9,6 +10,7 @@ pub mod memory_editor;
 pub mod screen;
 pub mod state;
 
+pub use charmap_editor::CharmapEditor;
 pub use documentation::Documentation;
 pub use editor::Editor;
 pub use file_explorer::FileExplorer;
