@@ -20,17 +20,21 @@ enum Row {
 pub struct Documentation;
 
 impl View for Documentation {
-    fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut egui::Context) {
-        let rows = toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
-            .expect("Couldn't parse documentation TOML file")
-            .get("row")
-            .expect("Couldn't find entry 'instruction' in documentation file")
-            .clone()
-            .try_into::<Vec<Row>>()
-            .expect("Couldn't parse instructions array from documentation file");
+    fn ui(&mut self, ui: &mut egui::Ui, _ctx: &mut egui::Context) {
+        let rows =
+            toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
+                .expect("Couldn't parse documentation TOML file")
+                .get("row")
+                .expect(
+                    "Couldn't find entry 'instruction' in documentation file",
+                )
+                .clone()
+                .try_into::<Vec<Row>>()
+                .expect(
+                    "Couldn't parse instructions array from documentation file",
+                );
 
-        let available_height = ui.available_height();
-        let mut table = TableBuilder::new(ui)
+        let _table = TableBuilder::new(ui)
             .striped(false)
             .resizable(false)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))

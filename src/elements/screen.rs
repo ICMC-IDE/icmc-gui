@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 pub struct ScrCanvas {
     program: glow::Program,
     vao: glow::VertexArray,
-    vbo: glow::Buffer,
+    _vbo: glow::Buffer,
     instance_vbo: glow::Buffer,
     texture: glow::Texture,
     cols: u32,
@@ -26,16 +26,20 @@ impl ScrCanvas {
 
         unsafe {
             #[cfg(target_arch = "wasm32")]
-            let vertex_shader_source = include_str!("../../res/shaders/vertex_es.glsl");
+            let vertex_shader_source =
+                include_str!("../../res/shaders/vertex_es.glsl");
 
             #[cfg(target_arch = "wasm32")]
-            let fragment_shader_source = include_str!("../../res/shaders/fragment_es.glsl");
+            let fragment_shader_source =
+                include_str!("../../res/shaders/fragment_es.glsl");
 
             #[cfg(not(target_arch = "wasm32"))]
-            let vertex_shader_source = include_str!("../../res/shaders/vertex.glsl");
+            let vertex_shader_source =
+                include_str!("../../res/shaders/vertex.glsl");
 
             #[cfg(not(target_arch = "wasm32"))]
-            let fragment_shader_source = include_str!("../../res/shaders/fragment.glsl");
+            let fragment_shader_source =
+                include_str!("../../res/shaders/fragment.glsl");
 
             let program = gl.create_program().expect("Cannot create program");
             let vs = gl
@@ -109,7 +113,8 @@ impl ScrCanvas {
             gl.enable_vertex_attrib_array(0);
             gl.vertex_attrib_pointer_f32(0, 4, glow::FLOAT, false, 0, 0);
 
-            let instance_vbo = gl.create_buffer().expect("Cannot create instance VBO");
+            let instance_vbo =
+                gl.create_buffer().expect("Cannot create instance VBO");
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(instance_vbo));
             gl.enable_vertex_attrib_array(1);
             gl.vertex_attrib_pointer_i32(1, 2, glow::UNSIGNED_BYTE, 0, 0);
@@ -152,7 +157,7 @@ impl ScrCanvas {
             Self {
                 program,
                 vao,
-                vbo,
+                _vbo: vbo,
                 instance_vbo,
                 texture,
                 cols: 40,
@@ -214,11 +219,18 @@ impl ScrCanvas {
 
             gl.bind_vertex_array(Some(self.vao));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.instance_vbo));
-            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vram, glow::STATIC_DRAW);
+            gl.buffer_data_u8_slice(
+                glow::ARRAY_BUFFER,
+                vram,
+                glow::STATIC_DRAW,
+            );
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-            gl.uniform_1_i32(gl.get_uniform_location(self.program, "tex").as_ref(), 0);
+            gl.uniform_1_i32(
+                gl.get_uniform_location(self.program, "tex").as_ref(),
+                0,
+            );
             gl.uniform_1_u32(
                 gl.get_uniform_location(self.program, "line_cells").as_ref(),
                 self.cols,
@@ -257,7 +269,12 @@ impl ScrCanvas {
                 &ortho,
             );
 
-            gl.draw_arrays_instanced(glow::TRIANGLES, 0, 6, (self.cols * self.lines) as i32);
+            gl.draw_arrays_instanced(
+                glow::TRIANGLES,
+                0,
+                6,
+                (self.cols * self.lines) as i32,
+            );
         }
     }
 }
@@ -280,7 +297,8 @@ impl Screen {
         let (_, rect) = ui.allocate_space(square_size);
         let canvas = self.canvas.clone();
         let vram_ptr = state.emulator.lock().unwrap().vram() as *const u8;
-        let vram: &[u8] = unsafe { std::slice::from_raw_parts(vram_ptr, 0x20000) };
+        let vram: &[u8] =
+            unsafe { std::slice::from_raw_parts(vram_ptr, 0x20000) };
 
         let charmap = if state.settings.charmap.needs_reload {
             state.settings.charmap.needs_reload = false;
@@ -291,13 +309,15 @@ impl Screen {
 
         let callback = egui::PaintCallback {
             rect,
-            callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                canvas.lock().expect("Couldn't unlock canvas").draw(
-                    painter.gl(),
-                    vram,
-                    charmap.as_ref(),
-                );
-            })),
+            callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
+                move |_info, painter| {
+                    canvas.lock().expect("Couldn't unlock canvas").draw(
+                        painter.gl(),
+                        vram,
+                        charmap.as_ref(),
+                    );
+                },
+            )),
         };
         ui.painter().add(callback);
     }
@@ -305,7 +325,12 @@ impl Screen {
 
 /* todo: render charmap into canvas */
 impl ViewState for Screen {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut State,
+        ctx: &mut egui::Context,
+    ) {
         /* handle keyboard input */
         if state.settings.input_enabled {
             ctx.input(|i| {
@@ -314,16 +339,18 @@ impl ViewState for Screen {
                         let keycode = keycode(key);
                         let mut emu = state.emulator.lock().unwrap();
 
-                        *emu.ireg_as_mut_ref(0x4) =
-                            if !i.modifiers.shift && keycode >= 65 && keycode <= 90 {
-                                keycode + 32
-                            } else {
-                                keycode
-                            }
+                        *emu.ireg_as_mut_ref(0x4) = if !i.modifiers.shift
+                            && keycode >= 65
+                            && keycode <= 90
+                        {
+                            keycode + 32
+                        } else {
+                            keycode
+                        }
                     }
 
                     if i.key_released(*key) {
-                        let keycode = keycode(key);
+                        let _keycode = keycode(key);
                         let mut emu = state.emulator.lock().unwrap();
 
                         *emu.ireg_as_mut_ref(0x4) = 0xff;

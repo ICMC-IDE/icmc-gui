@@ -21,7 +21,12 @@ impl Default for Charmap {
 }
 
 impl Charmap {
-    pub fn new(char_width: usize, char_height: usize, num_colors: usize, num_chars: usize) -> Self {
+    pub fn new(
+        char_width: usize,
+        char_height: usize,
+        num_colors: usize,
+        num_chars: usize,
+    ) -> Self {
         let screen_width = char_width * num_colors;
         let screen_height = char_height * num_chars;
 
@@ -42,7 +47,8 @@ impl Charmap {
         num_chars: usize,
         bytes: Vec<u8>,
     ) -> Self {
-        let mut charmap = Charmap::new(char_width, char_height, num_colors, num_chars);
+        let mut charmap =
+            Charmap::new(char_width, char_height, num_colors, num_chars);
 
         charmap.bytes = bytes;
 
@@ -83,12 +89,14 @@ impl Charmap {
 
             for char_idx in 0..num_chars {
                 for byte_idx in 0..charmap.char_height {
-                    let data_byte_index = char_idx * charmap.char_height + byte_idx;
+                    let data_byte_index =
+                        char_idx * charmap.char_height + byte_idx;
                     let data_byte = charmap.bytes[data_byte_index];
 
                     for bit_offset in 0..charmap.char_width {
                         let bit_value = (data_byte >> (7 - bit_offset)) & 1;
-                        let x_pos = (color_idx * charmap.char_width) + bit_offset;
+                        let x_pos =
+                            (color_idx * charmap.char_width) + bit_offset;
                         let y_pos = (char_idx * charmap.char_height) + byte_idx;
                         let pixel_index = (y_pos * screen_width + x_pos) * 4;
 

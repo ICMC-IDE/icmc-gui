@@ -6,7 +6,12 @@ use crate::resources::charmap::Charmap;
 pub struct CharmapEditor {}
 
 impl ViewState for CharmapEditor {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut State,
+        _ctx: &mut egui::Context,
+    ) {
         ui.horizontal(|ui| {
             if ui.button("Import").clicked() {
                 #[cfg(target_arch = "wasm32")]
@@ -21,7 +26,11 @@ impl ViewState for CharmapEditor {
                             std::fs::read_to_string(path)
                                 .ok()
                                 .and_then(|s| mif::parser::parse_mif(&s))
-                                .and_then(|parsed| Some(Charmap::from_bytes(8, 8, 30, 40, parsed)))
+                                .and_then(|parsed| {
+                                    Some(Charmap::from_bytes(
+                                        8, 8, 30, 40, parsed,
+                                    ))
+                                })
                                 .unwrap_or_else(Charmap::default)
                         }) {
                             state.settings.charmap = cm;

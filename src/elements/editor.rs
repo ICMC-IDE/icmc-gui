@@ -1,9 +1,7 @@
-use core::f32;
-
 use super::ViewState;
 use crate::State;
 use crate::resources::syntax;
-use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
+use egui_code_editor::{CodeEditor, ColorTheme};
 use egui_dock::egui;
 use std::sync::{Arc, atomic::Ordering};
 
@@ -11,17 +9,21 @@ use std::sync::{Arc, atomic::Ordering};
 pub struct Editor;
 
 impl ViewState for Editor {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
-        let code_buf = state
-            .code_buf
-            .get_or_insert_with(|| include_str!("../../res/example.asm").to_owned());
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut State,
+        ctx: &mut egui::Context,
+    ) {
+        let code_buf = state.code_buf.get_or_insert_with(|| {
+            include_str!("../../res/example.asm").to_owned()
+        });
 
         ui.add_space(10.0);
 
         ui.horizontal(|ui| {
             if ui.button("Save").clicked() {
                 let mut fs = state.fs.lock().unwrap();
-                let mut emu = state.emulator.lock().unwrap();
 
                 #[cfg(target_family = "wasm")]
                 {
@@ -41,7 +43,10 @@ impl ViewState for Editor {
 
                     if let Err(e) = fs.write(open_file, code_buf.as_bytes()) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Failed to write .code.asm: {}", e));
+                            log_panel.add_log(format!(
+                                "Failed to write .code.asm: {}",
+                                e
+                            ));
                         }
                         return;
                     }
@@ -61,20 +66,31 @@ impl ViewState for Editor {
                                 let mut emu = state.emulator.lock().unwrap();
 
                                 emu.load(&asm.binary());
-                                if let Ok(mut log_panel) = state.log_panel.lock() {
-                                    log_panel
-                                        .add_log("Assembly successful! Binary loaded.".to_string());
+                                if let Ok(mut log_panel) =
+                                    state.log_panel.lock()
+                                {
+                                    log_panel.add_log(
+                                        "Assembly successful! Binary loaded."
+                                            .to_string(),
+                                    );
                                 }
                             }
                             Err(_) => {
-                                if let Ok(mut log_panel) = state.log_panel.lock() {
-                                    log_panel.add_log("Assembly error: syntax error".to_string());
+                                if let Ok(mut log_panel) =
+                                    state.log_panel.lock()
+                                {
+                                    log_panel.add_log(
+                                        "Assembly error: syntax error"
+                                            .to_string(),
+                                    );
                                 }
                             }
                         }
                     }) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log("Assembly error: syntax error".to_string());
+                            log_panel.add_log(
+                                "Assembly error: syntax error".to_string(),
+                            );
                         }
 
                         return;
@@ -86,12 +102,19 @@ impl ViewState for Editor {
                     let mut fs = state.fs.lock().unwrap();
                     let icmc_syntax = include_str!("../../res/icmc.toml");
 
-                    let syntax_path =
-                        &format!("{}/icmc.toml", state.ide_path.clone().unwrap().display());
+                    let syntax_path = &format!(
+                        "{}/icmc.toml",
+                        state.ide_path.clone().unwrap().display()
+                    );
 
-                    if let Err(e) = fs.write(syntax_path, icmc_syntax.as_bytes()) {
+                    if let Err(e) =
+                        fs.write(syntax_path, icmc_syntax.as_bytes())
+                    {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Failed to write .icmc.toml: {}", e));
+                            log_panel.add_log(format!(
+                                "Failed to write .icmc.toml: {}",
+                                e
+                            ));
                         }
                         return;
                     }
@@ -103,7 +126,10 @@ impl ViewState for Editor {
 
                     if let Err(e) = fs.write(open_file, code_buf.as_bytes()) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Failed to write .code.asm: {}", e));
+                            log_panel.add_log(format!(
+                                "Failed to write .code.asm: {}",
+                                e
+                            ));
                         }
                         return;
                     }
@@ -112,22 +138,33 @@ impl ViewState for Editor {
                         log_panel.auto_scroll();
                     }
 
-                    if let Err(asm_res) = std::panic::catch_unwind(|| {
+                    if let Err(_) = std::panic::catch_unwind(|| {
                         match assembler::assemble(&fs, open_file, syntax_path) {
                             Ok(asm) => {
                                 let mut emu = state.emulator.lock().unwrap();
 
                                 emu.load(&asm.binary());
-                                if let Ok(mut log_panel) = state.log_panel.lock() {
-                                    log_panel
-                                        .add_log("Assembly successful! Binary loaded.".to_string());
+                                if let Ok(mut log_panel) =
+                                    state.log_panel.lock()
+                                {
+                                    log_panel.add_log(
+                                        "Assembly successful! Binary loaded."
+                                            .to_string(),
+                                    );
                                 }
                             }
                             Err(err) => {
-                                if let Ok(mut log_panel) = state.log_panel.lock() {
-                                    log_panel.add_log(format!("Assembly error: {}", err));
+                                if let Ok(mut log_panel) =
+                                    state.log_panel.lock()
+                                {
+                                    log_panel.add_log(format!(
+                                        "Assembly error: {}",
+                                        err
+                                    ));
 
-                                    if let Some((line, col)) = extract_line_column(&err) {
+                                    if let Some((line, col)) =
+                                        extract_line_column(&err)
+                                    {
                                         log_panel.add_log(format!(
                                             "    at line {}, column {}",
                                             line, col
@@ -138,7 +175,9 @@ impl ViewState for Editor {
                         }
                     }) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log("Assembly error: syntax error".to_string());
+                            log_panel.add_log(
+                                "Assembly error: syntax error".to_string(),
+                            );
                         }
 
                         return;
@@ -183,7 +222,8 @@ impl ViewState for Editor {
                                 *f
                             };
 
-                            let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
+                            let sleep_time =
+                                Duration::from_secs_f64(1.0 / freq_val);
                             let elapsed = start.elapsed();
 
                             if elapsed < sleep_time {
@@ -220,7 +260,8 @@ impl ViewState for Editor {
                                 *f
                             };
 
-                            *ticks_pending.borrow_mut() += elapsed * freq_val * 1e-3;
+                            *ticks_pending.borrow_mut() +=
+                                elapsed * freq_val * 1e-3;
 
                             if *ticks_pending.borrow() > 1_000_000.0 {
                                 *ticks_pending.borrow_mut() = 1_000_000.0;
@@ -234,7 +275,9 @@ impl ViewState for Editor {
                                     break;
                                 }
 
-                                let ticks_done = emu.tick(*ticks_pending.borrow() as isize) as f64;
+                                let ticks_done = emu
+                                    .tick(*ticks_pending.borrow() as isize)
+                                    as f64;
                                 *ticks_pending.borrow_mut() -= ticks_done;
                             }
 
@@ -250,21 +293,31 @@ impl ViewState for Editor {
                 code_buf.clear();
             }
 
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Reset font size").clicked() {
-                    state.settings.font_size = 14.0;
-                }
+            ui.with_layout(
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    if ui.button("Reset font size").clicked() {
+                        state.settings.font_size = 14.0;
+                    }
 
-                if ui.button("-").clicked() && state.settings.font_size >= 4.0 {
-                    state.settings.font_size -= 2.0;
-                }
+                    if ui.button("-").clicked()
+                        && state.settings.font_size >= 4.0
+                    {
+                        state.settings.font_size -= 2.0;
+                    }
 
-                if ui.button("+").clicked() && state.settings.font_size <= 64.0 {
-                    state.settings.font_size += 2.0;
-                }
+                    if ui.button("+").clicked()
+                        && state.settings.font_size <= 64.0
+                    {
+                        state.settings.font_size += 2.0;
+                    }
 
-                ui.label(format!("Font size: {} pt", state.settings.font_size));
-            });
+                    ui.label(format!(
+                        "Font size: {} pt",
+                        state.settings.font_size
+                    ));
+                },
+            );
         });
 
         let color_theme = if ui.visuals().dark_mode {
@@ -272,8 +325,6 @@ impl ViewState for Editor {
         } else {
             ColorTheme::GITHUB_LIGHT
         };
-
-        use std::collections::BTreeSet;
 
         CodeEditor::default()
             .id_source("asm_editor")

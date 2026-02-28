@@ -7,7 +7,10 @@ use std::sync::{Arc, atomic::Ordering};
 pub struct StatePanel;
 
 impl StatePanel {
-    fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: Radix) -> egui::DragValue<'a> {
+    fn reg_fmt<'a>(
+        dv: egui::DragValue<'a>,
+        radix: Radix,
+    ) -> egui::DragValue<'a> {
         match radix {
             Radix::Binary => dv.binary(8, false),
             Radix::Decimal => dv,
@@ -18,7 +21,12 @@ impl StatePanel {
 }
 
 impl ViewState for StatePanel {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, ctx: &mut egui::Context) {
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut State,
+        ctx: &mut egui::Context,
+    ) {
         let mut freq = state.freq.lock().unwrap();
 
         ui.set_min_size(ui.available_size());
@@ -33,8 +41,6 @@ impl ViewState for StatePanel {
                 let running = Arc::clone(&state.running);
 
                 running.store(true, Ordering::SeqCst);
-
-                /* TODO: improve thread communcation with std::sync::mpsc */
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -64,7 +70,8 @@ impl ViewState for StatePanel {
                                 *f
                             };
 
-                            let sleep_time = Duration::from_secs_f64(1.0 / freq_val);
+                            let sleep_time =
+                                Duration::from_secs_f64(1.0 / freq_val);
                             let elapsed = start.elapsed();
 
                             if elapsed < sleep_time {
@@ -101,7 +108,8 @@ impl ViewState for StatePanel {
                                 *f
                             };
 
-                            *ticks_pending.borrow_mut() += elapsed * freq_val * 1e-3;
+                            *ticks_pending.borrow_mut() +=
+                                elapsed * freq_val * 1e-3;
 
                             if *ticks_pending.borrow() > 1_000_000.0 {
                                 *ticks_pending.borrow_mut() = 1_000_000.0;
@@ -115,7 +123,9 @@ impl ViewState for StatePanel {
                                     break;
                                 }
 
-                                let ticks_done = emu.tick(*ticks_pending.borrow() as isize) as f64;
+                                let ticks_done = emu
+                                    .tick(*ticks_pending.borrow() as isize)
+                                    as f64;
                                 *ticks_pending.borrow_mut() -= ticks_done;
                             }
 
@@ -152,7 +162,9 @@ impl ViewState for StatePanel {
                     icmc_emulator::State::Paused => "Paused",
                     icmc_emulator::State::BreakPoint => "Breakpoint",
                     icmc_emulator::State::Halted => "Halted",
-                    icmc_emulator::State::UnknownInstruction => "Unknown Instruction",
+                    icmc_emulator::State::UnknownInstruction => {
+                        "Unknown Instruction"
+                    }
                 }
             };
 

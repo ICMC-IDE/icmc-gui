@@ -1,6 +1,6 @@
 use crate::elements::{
-    CharmapEditor, Documentation, Editor, FileExplorer, LogPanel, MemEditor, Screen, StatePanel,
-    View, ViewState,
+    CharmapEditor, Documentation, Editor, FileExplorer, LogPanel, MemEditor,
+    Screen, StatePanel, View, ViewState,
 };
 use crate::resources::{radix::Radix, settings::Settings};
 use egui_dock::dock_state::tree::Split;
@@ -130,14 +130,14 @@ pub struct IdeApp {
     /* Tab/Dock related */
     tree: DockState<String>,
     open_tabs: HashSet<String>,
-    nodes: HashMap<String, NodeIndex>,
+    _nodes: HashMap<String, NodeIndex>,
 
     /* Core */
-    emulator: Arc<Mutex<Emulator>>,     /* Emulator backend*/
-    fs: Arc<Mutex<fs::Fs>>,             /* Filesystem */
-    freq: Arc<Mutex<f64>>,              /* Emulator running frequency */
+    emulator: Arc<Mutex<Emulator>>, /* Emulator backend*/
+    fs: Arc<Mutex<fs::Fs>>,         /* Filesystem */
+    freq: Arc<Mutex<f64>>,          /* Emulator running frequency */
     emu_handle: Option<JoinHandle<()>>, /* Emulator thread handle */
-    running: Arc<AtomicBool>,           /* Emulator thread status */
+    running: Arc<AtomicBool>,       /* Emulator thread status */
 
     code_buf: Option<String>,
     ide_path: Option<PathBuf>,
@@ -157,7 +157,10 @@ pub struct IdeApp {
 }
 
 impl IdeApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, ide_path: Option<PathBuf>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        ide_path: Option<PathBuf>,
+    ) -> Self {
         let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
         let mut nodes = HashMap::new();
         nodes.insert("Code Editor".to_owned(), NodeIndex::root());
@@ -175,7 +178,9 @@ impl IdeApp {
         for tab in &["Screen", "State", "Log"] {
             let (parent, fraction, split) = match *tab {
                 "Screen" => (NodeIndex::root(), 0.3, Split::Left),
-                "State" => (nodes.get("Screen").copied().unwrap(), 0.5, Split::Below),
+                "State" => {
+                    (nodes.get("Screen").copied().unwrap(), 0.5, Split::Below)
+                }
                 "Log" => (
                     nodes.get("Code Editor").copied().unwrap(),
                     0.7,
@@ -240,7 +245,7 @@ impl IdeApp {
         Self {
             tree,
             open_tabs,
-            nodes,
+            _nodes: nodes,
 
             emulator,
             fs,
@@ -310,9 +315,9 @@ impl IdeApp {
                             self.tree.add_window(vec![tab.to_string()]);
                         } else {
                             let surf = self.tree.main_surface_mut();
-                            let empty_root = surf
-                                .iter()
-                                .all(|node| node.tabs().map_or(true, |t| t.is_empty()));
+                            let empty_root = surf.iter().all(|node| {
+                                node.tabs().map_or(true, |t| t.is_empty())
+                            });
 
                             if empty_root {
                                 surf.push_to_focused_leaf((*tab).to_string());
@@ -352,14 +357,33 @@ impl IdeApp {
                 }
             }
 
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
-                ui.menu_button("Radix", |ui| {
-                    ui.selectable_value(&mut self.settings.radix, Radix::Binary, "Binary");
-                    ui.selectable_value(&mut self.settings.radix, Radix::Decimal, "Decimal");
-                    ui.selectable_value(&mut self.settings.radix, Radix::Hex, "Hexadecimal");
-                    ui.selectable_value(&mut self.settings.radix, Radix::Octal, "Octal");
-                });
-            });
+            ui.with_layout(
+                egui::Layout::right_to_left(egui::Align::Max),
+                |ui| {
+                    ui.menu_button("Radix", |ui| {
+                        ui.selectable_value(
+                            &mut self.settings.radix,
+                            Radix::Binary,
+                            "Binary",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.radix,
+                            Radix::Decimal,
+                            "Decimal",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.radix,
+                            Radix::Hex,
+                            "Hexadecimal",
+                        );
+                        ui.selectable_value(
+                            &mut self.settings.radix,
+                            Radix::Octal,
+                            "Octal",
+                        );
+                    });
+                },
+            );
         });
 
         ui.add_space(2.0);
@@ -385,9 +409,12 @@ impl eframe::App for IdeApp {
             let toml = toml::to_string(&self.settings).unwrap();
 
             if let Some(path) = self.ide_path.clone() {
-                match std::fs::write(format!("{}/settings.toml", path.display()), toml) {
+                match std::fs::write(
+                    format!("{}/settings.toml", path.display()),
+                    toml,
+                ) {
                     Ok(_) => (),
-                    Err(e) => {
+                    Err(_) => {
                         println!("Couldn't write settings.toml");
                     }
                 };

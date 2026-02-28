@@ -13,7 +13,8 @@ pub struct FileExplorer {
 impl FileExplorer {
     pub fn new(path: Option<PathBuf>) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
-        let root_path = path.or(Some(std::env::current_dir().unwrap())).unwrap();
+        let root_path =
+            path.or(Some(std::env::current_dir().unwrap())).unwrap();
 
         #[cfg(target_arch = "wasm32")]
         let root_path = path.or(Some(PathBuf::from("."))).unwrap();
@@ -35,8 +36,14 @@ impl FileExplorer {
 }
 
 impl ViewState for FileExplorer {
-    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State, _ctx: &mut egui::Context) {
-        let paths: Vec<std::path::PathBuf> = self.entries.iter().map(|e| e.path()).collect();
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut State,
+        _ctx: &mut egui::Context,
+    ) {
+        let paths: Vec<std::path::PathBuf> =
+            self.entries.iter().map(|e| e.path()).collect();
 
         ui.horizontal(|ui| {
             if ui.button("New File").clicked() {
@@ -64,7 +71,9 @@ impl ViewState for FileExplorer {
                 #[cfg(target_arch = "wasm32")]
                 {
                     wasm_bindgen_futures::spawn_local(async {
-                        if let Some(path) = rfd::AsyncFileDialog::new().pick_file().await {
+                        if let Some(path) =
+                            rfd::AsyncFileDialog::new().pick_file().await
+                        {
                             let file_name = path.file_name();
                             let data = path.read();
                         }
@@ -74,7 +83,9 @@ impl ViewState for FileExplorer {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if let Some(path) = rfd::FileDialog::new().pick_file() {
-                        let dest = self.current_path.join(path.file_name().unwrap_or_default());
+                        let dest = self
+                            .current_path
+                            .join(path.file_name().unwrap_or_default());
 
                         if let Err(e) = std::fs::copy(&path, &dest) {
                             eprintln!("Couldn't copy file: {}", e);
@@ -104,7 +115,10 @@ impl ViewState for FileExplorer {
                     .to_string();
 
                 if path.is_dir() {
-                    if ui.selectable_label(false, format!("📂 {}", name)).clicked() {
+                    if ui
+                        .selectable_label(false, format!("📂 {}", name))
+                        .clicked()
+                    {
                         self.current_path = path.clone();
                         self.entries = Self::read_dir(&self.current_path);
                     }
@@ -117,17 +131,25 @@ impl ViewState for FileExplorer {
 
                     if is_selected {
                         ui.strong(format!("📄 {}", name));
-                    } else if ui.selectable_label(false, format!("📄 {}", name)).clicked() {
-                        *state.open_file = Some(path.canonicalize().unwrap_or(path.clone()));
-                        *state.code_buf = Some(fs::read_to_string(&path).unwrap());
+                    } else if ui
+                        .selectable_label(false, format!("📄 {}", name))
+                        .clicked()
+                    {
+                        *state.open_file =
+                            Some(path.canonicalize().unwrap_or(path.clone()));
+                        *state.code_buf =
+                            Some(fs::read_to_string(&path).unwrap());
                     }
                 }
             }
         });
 
-        if self.current_path.parent().is_some() && self.current_path != self.root_path {
+        if self.current_path.parent().is_some()
+            && self.current_path != self.root_path
+        {
             if ui.button("⬅ Back").clicked() {
-                self.current_path = self.current_path.parent().unwrap().to_path_buf();
+                self.current_path =
+                    self.current_path.parent().unwrap().to_path_buf();
                 self.entries = Self::read_dir(&self.current_path);
             }
         }

@@ -31,8 +31,8 @@ fn main() -> eframe::Result {
     }
 
     eframe::run_native(
-        "ICMC IDE (native)",                                            /* title */
-        native_options,                                                 /* options */
+        "ICMC IDE (native)", /* title */
+        native_options,      /* options */
         Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, Some(ide_path))))), /* creation ctx */
     )
 }
