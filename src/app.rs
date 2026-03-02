@@ -11,15 +11,16 @@ use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, Mutex, atomic::AtomicBool},
-    thread::JoinHandle,
 };
+use tokio::runtime;
 
 /* Emulator state */
 pub struct State<'a> {
     pub emulator: Arc<Mutex<Emulator>>,
+    pub rt: &'a mut runtime::Runtime,
     pub fs: Arc<Mutex<fs::Fs>>,
     pub freq: Arc<Mutex<f64>>,
-    pub emu_handle: &'a mut Option<JoinHandle<()>>,
+    pub emu_handle: &'a mut Option<tokio::task::JoinHandle<()>>,
     pub running: Arc<AtomicBool>,
     pub code_buf: &'a mut Option<String>,
     pub log_panel: Arc<Mutex<LogPanel>>,
@@ -134,10 +135,11 @@ pub struct IdeApp {
 
     /* Core */
     emulator: Arc<Mutex<Emulator>>, /* Emulator backend*/
+    rt: runtime::Runtime,           /* Tokio runtime */
     fs: Arc<Mutex<fs::Fs>>,         /* Filesystem */
     freq: Arc<Mutex<f64>>,          /* Emulator running frequency */
-    emu_handle: Option<JoinHandle<()>>, /* Emulator thread handle */
-    running: Arc<AtomicBool>,       /* Emulator thread status */
+    emu_handle: Option<tokio::task::JoinHandle<()>>, /* Emulator thread handle */
+    running: Arc<AtomicBool>, /* Emulator thread status */
 
     code_buf: Option<String>,
     ide_path: Option<PathBuf>,
@@ -169,6 +171,10 @@ impl IdeApp {
         std::panic::set_hook(Box::new(|_info| {}));
 
         let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
+        let rt = runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let fs = Arc::new(Mutex::new(fs::Fs::new()));
         let freq = Arc::new(Mutex::new(1.0));
         let emu_handle = None;
@@ -235,10 +241,12 @@ impl IdeApp {
 
         let binding = fs.clone();
         let mut fs_unlock = binding.lock().unwrap();
-        fs_unlock.write(
-            example_path.to_str().unwrap(),
-            include_str!("../res/example.asm").to_owned().as_bytes(),
-        );
+        fs_unlock
+            .write(
+                example_path.to_str().unwrap(),
+                include_str!("../res/example.asm").to_owned().as_bytes(),
+            )
+            .expect("Can't write to workspace directory");
 
         let charmap = settings.charmap.clone();
 
@@ -248,6 +256,7 @@ impl IdeApp {
             _nodes: nodes,
 
             emulator,
+            rt,
             fs,
             freq,
             emu_handle,
@@ -427,6 +436,7 @@ impl eframe::App for IdeApp {
 
         let mut state = State {
             emulator: self.emulator.clone(),
+            rt: &mut self.rt,
             fs: self.fs.clone(),
             freq: self.freq.clone(),
             emu_handle: &mut self.emu_handle,
@@ -464,5 +474,9 @@ impl eframe::App for IdeApp {
             .show_close_buttons(true)
             .show_leaf_close_all_buttons(false)
             .show(ctx, &mut tab_viewer);
+    }
+
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        self.screen.destroy(gl);
     }
 }

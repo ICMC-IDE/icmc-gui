@@ -54,7 +54,8 @@ impl ViewState for CharmapEditor {
                             mif::Radix::Bin,
                         );
 
-                        std::fs::write(path, format!("{}", mif));
+                        std::fs::write(path, format!("{}", mif))
+                            .expect("Can't write to the workspace directory");
                     }
                 }
             }

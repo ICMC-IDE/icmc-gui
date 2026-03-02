@@ -81,14 +81,12 @@ impl ViewState for MemEditor {
         });
 
         let mut emu = state.emulator.lock().unwrap();
-
-        let ram: &[u16] =
-            unsafe { std::slice::from_raw_parts(emu.ram(), 0x10000) };
+        let ram_len = emu.ram().len();
 
         if self.selected_index != self.last_selected_index {
             if let Some(addr) = self.selected_index {
-                if addr < ram.len() {
-                    let value = ram[addr];
+                if addr < ram_len {
+                    let value = emu.ram()[addr];
                     self.update_fields(addr, value, None);
                 }
             }
@@ -96,9 +94,10 @@ impl ViewState for MemEditor {
         }
 
         let ram_hex: Vec<String> =
-            ram.iter().map(|val| format!("{:04X}", val)).collect();
+            emu.ram().iter().map(|val| format!("{:04X}", val)).collect();
 
-        let ram_char: Vec<char> = ram
+        let ram_char: Vec<char> = emu
+            .ram()
             .iter()
             .map(|&x| {
                 let byte = x as u8;
@@ -270,7 +269,7 @@ impl ViewState for MemEditor {
 
             columns[1].vertical(|ui| {
                 if let Some(addr) = self.selected_index {
-                    if addr < ram.len() {
+                    if addr < ram_len {
                         ui.label("Address");
                         let response =
                             ui.text_edit_singleline(&mut self.address);
@@ -282,7 +281,7 @@ impl ViewState for MemEditor {
                             if let Ok(new_addr) =
                                 u16::from_str_radix(addr_str, 16)
                             {
-                                if (new_addr as usize) < ram.len() {
+                                if (new_addr as usize) < ram_len {
                                     self.selected_index =
                                         Some(new_addr as usize);
                                     self.last_selected_index = None; // força update dos campos

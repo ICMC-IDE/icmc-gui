@@ -143,7 +143,7 @@ impl ViewState for Editor {
                             Ok(asm) => {
                                 let mut emu = state.emulator.lock().unwrap();
 
-                                emu.load(&asm.binary());
+                                emu.load_program(&asm.binary());
                                 if let Ok(mut log_panel) =
                                     state.log_panel.lock()
                                 {
@@ -192,14 +192,11 @@ impl ViewState for Editor {
 
                 running.store(true, Ordering::SeqCst);
 
-                /* TODO: improve thread communcation with std::sync::mpsc */
-
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    use std::thread;
                     use std::time::{Duration, Instant};
 
-                    *state.emu_handle = Some(thread::spawn(move || {
+                    *state.emu_handle = Some(state.rt.spawn(async move {
                         while running.load(Ordering::SeqCst) {
                             let start = Instant::now();
 
@@ -227,7 +224,7 @@ impl ViewState for Editor {
                             let elapsed = start.elapsed();
 
                             if elapsed < sleep_time {
-                                thread::sleep(sleep_time - elapsed);
+                                tokio::time::sleep(sleep_time - elapsed).await;
                             }
                         }
                     }));

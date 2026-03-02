@@ -1,6 +1,9 @@
 use super::ViewState;
 use crate::{State, resources::charmap::Charmap, resources::keyboard::keycode};
-use eframe::{egui_glow, glow};
+use eframe::{
+    egui_glow,
+    glow::{self},
+};
 use egui_dock::egui;
 use std::sync::{Arc, Mutex};
 
@@ -168,7 +171,7 @@ impl ScrCanvas {
         }
     }
 
-    fn destroy(&self, gl: &glow::Context) {
+    pub fn destroy(&self, gl: &glow::Context) {
         use glow::HasContext as _;
 
         unsafe {
@@ -288,6 +291,12 @@ impl Screen {
         }
     }
 
+    pub fn destroy(&mut self, gl: Option<&glow::Context>) {
+        if let Some(gl) = gl {
+            self.canvas.lock().unwrap().destroy(gl);
+        }
+    }
+
     fn draw(&mut self, ui: &mut egui::Ui, state: &mut State) {
         let size = ui.available_width().min(ui.available_height()) - 25.0;
         let square_size = egui::Vec2::splat(size);
@@ -296,9 +305,8 @@ impl Screen {
 
         let (_, rect) = ui.allocate_space(square_size);
         let canvas = self.canvas.clone();
-        let vram_ptr = state.emulator.lock().unwrap().vram() as *const u8;
-        let vram: &[u8] =
-            unsafe { std::slice::from_raw_parts(vram_ptr, 0x20000) };
+        let vram = bytemuck::cast_slice(state.emulator.lock().unwrap().vram())
+            .to_vec();
 
         let charmap = if state.settings.charmap.needs_reload {
             state.settings.charmap.needs_reload = false;
@@ -313,7 +321,7 @@ impl Screen {
                 move |_info, painter| {
                     canvas.lock().expect("Couldn't unlock canvas").draw(
                         painter.gl(),
-                        vram,
+                        &vram,
                         charmap.as_ref(),
                     );
                 },

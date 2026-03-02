@@ -38,6 +38,12 @@ impl ViewState for StatePanel {
                 let emu = Arc::clone(&state.emulator);
                 let ctx = ctx.clone();
 
+                if let Some(handle) = &state.emu_handle {
+                    handle.abort();
+                    let mut emu = emu.lock().unwrap();
+                    emu.reset();
+                }
+
                 let running = Arc::clone(&state.running);
 
                 running.store(true, Ordering::SeqCst);
@@ -47,7 +53,7 @@ impl ViewState for StatePanel {
                     use std::thread;
                     use std::time::{Duration, Instant};
 
-                    *state.emu_handle = Some(thread::spawn(move || {
+                    *state.emu_handle = Some(state.rt.spawn(async move {
                         while running.load(Ordering::SeqCst) {
                             let start = Instant::now();
 
@@ -216,19 +222,19 @@ impl ViewState for StatePanel {
             ui.horizontal(|ui| {
                 ui.label(format!("FR: "));
                 ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.fr_as_mut_ref()),
+                    egui::DragValue::new(emu.ireg_as_mut_ref(0)),
                     state.settings.radix,
                 ));
 
                 ui.label(format!("SP: "));
                 ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.sp_as_mut_ref()),
+                    egui::DragValue::new(emu.ireg_as_mut_ref(1)),
                     state.settings.radix,
                 ));
 
                 ui.label(format!("PC: "));
                 ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.pc_as_mut_ref()),
+                    egui::DragValue::new(emu.ireg_as_mut_ref(2)),
                     state.settings.radix,
                 ));
 
