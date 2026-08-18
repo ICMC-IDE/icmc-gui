@@ -16,7 +16,6 @@ impl ViewState for CharmapEditor {
             if ui.button("Import").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
-                    unreachable!();
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
@@ -42,7 +41,6 @@ impl ViewState for CharmapEditor {
             if ui.button("Export").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
-                    unreachable!();
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]

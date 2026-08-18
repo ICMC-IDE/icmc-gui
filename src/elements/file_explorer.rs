@@ -49,7 +49,6 @@ impl ViewState for FileExplorer {
             if ui.button("New File").clicked() {
                 #[cfg(target_arch = "wasm32")]
                 {
-                    unreachable!();
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]

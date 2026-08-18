@@ -12,15 +12,20 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex, atomic::AtomicBool},
 };
+
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::runtime;
 
 /* Emulator state */
 pub struct State<'a> {
     pub emulator: Arc<Mutex<Emulator>>,
-    pub rt: &'a mut runtime::Runtime,
-    pub fs: Arc<Mutex<fs::Fs>>,
     pub freq: Arc<Mutex<f64>>,
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub rt: &'a mut runtime::Runtime,
+    #[cfg(not(target_arch = "wasm32"))]
     pub emu_handle: &'a mut Option<tokio::task::JoinHandle<()>>,
+
     pub running: Arc<AtomicBool>,
     pub code_buf: &'a mut Option<String>,
     pub log_panel: Arc<Mutex<LogPanel>>,
@@ -135,10 +140,13 @@ pub struct IdeApp {
 
     /* Core */
     emulator: Arc<Mutex<Emulator>>, /* Emulator backend*/
-    rt: runtime::Runtime,           /* Tokio runtime */
-    fs: Arc<Mutex<fs::Fs>>,         /* Filesystem */
     freq: Arc<Mutex<f64>>,          /* Emulator running frequency */
+
+    #[cfg(not(target_arch = "wasm32"))]
     emu_handle: Option<tokio::task::JoinHandle<()>>, /* Emulator thread handle */
+    #[cfg(not(target_arch = "wasm32"))]
+    rt: runtime::Runtime,           /* Tokio runtime */
+
     running: Arc<AtomicBool>, /* Emulator thread status */
 
     code_buf: Option<String>,
@@ -171,12 +179,15 @@ impl IdeApp {
         std::panic::set_hook(Box::new(|_info| {}));
 
         let emulator = Arc::new(Mutex::new(icmc_emulator::Emulator::new()));
+
+        #[cfg(not(target_arch = "wasm32"))]
         let rt = runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
-        let fs = Arc::new(Mutex::new(fs::Fs::new()));
+
         let freq = Arc::new(Mutex::new(1.0));
+        #[cfg(not(target_arch = "wasm32"))]
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
 
@@ -239,14 +250,11 @@ impl IdeApp {
             .and_then(|toml_str| toml::from_str(&toml_str).ok())
             .unwrap_or_default();
 
-        let binding = fs.clone();
-        let mut fs_unlock = binding.lock().unwrap();
-        fs_unlock
-            .write(
+        std::fs::write(
                 example_path.to_str().unwrap(),
                 include_str!("../res/example.asm").to_owned().as_bytes(),
-            )
-            .expect("Can't write to workspace directory");
+        )
+        .expect("Can't write to workspace directory");
 
         let charmap = settings.charmap.clone();
 
@@ -256,10 +264,13 @@ impl IdeApp {
             _nodes: nodes,
 
             emulator,
+
+            #[cfg(not(target_arch = "wasm32"))]
             rt,
-            fs,
-            freq,
+            #[cfg(not(target_arch = "wasm32"))]
             emu_handle,
+
+            freq,
             running,
 
             code_buf: None,
@@ -436,10 +447,13 @@ impl eframe::App for IdeApp {
 
         let mut state = State {
             emulator: self.emulator.clone(),
-            rt: &mut self.rt,
-            fs: self.fs.clone(),
             freq: self.freq.clone(),
+
+            #[cfg(not(target_arch = "wasm32"))]
             emu_handle: &mut self.emu_handle,
+            #[cfg(not(target_arch = "wasm32"))]
+            rt: &mut self.rt,
+
             running: self.running.clone(),
             code_buf: &mut self.code_buf,
             log_panel: self.log_panel.clone(),
@@ -477,6 +491,11 @@ impl eframe::App for IdeApp {
     }
 
     fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(handle) = &self.emu_handle {
+            handle.abort();
+        }
+
         self.screen.destroy(gl);
     }
 }

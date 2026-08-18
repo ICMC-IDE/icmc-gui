@@ -15,23 +15,18 @@ impl ViewState for Editor {
         state: &mut State,
         ctx: &mut egui::Context,
     ) {
-        let code_buf = state.code_buf.get_or_insert_with(|| {
+        let mut_code_buf = state.code_buf.get_or_insert_with(|| {
             include_str!("../../res/example.asm").to_owned()
         });
 
         ui.add_space(10.0);
 
+        let code_buf = mut_code_buf.to_owned();
         ui.horizontal(|ui| {
             if ui.button("Save").clicked() {
-                let mut fs = state.fs.lock().unwrap();
-
                 #[cfg(target_family = "wasm")]
                 {
                     todo!("Need to implement JS wrapper to fs.js");
-                    /*
-                    fs.write(".code.asm", state.code_buf.as_bytes());
-                    fs.write(".icmc.toml", icmc_syntax.as_bytes());
-                    */
                 }
 
                 #[cfg(not(target_family = "wasm"))]
@@ -41,7 +36,7 @@ impl ViewState for Editor {
                         &mut None => todo!(),
                     };
 
-                    if let Err(e) = fs.write(open_file, code_buf.as_bytes()) {
+                    if let Err(e) = std::fs::write(open_file, code_buf.as_bytes()) {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
                             log_panel.add_log(format!(
                                 "Failed to write .code.asm: {}",
@@ -54,135 +49,40 @@ impl ViewState for Editor {
             }
 
             if ui.button("Build and Run").clicked() {
-                #[cfg(target_family = "wasm")]
-                {
-                    /* testing */
-                    if let Err(asm_res) = std::panic::catch_unwind(|| {
-                        match assembler::assemble_from_buf(
-                            code_buf,
-                            include_str!("../../res/icmc.toml"),
-                        ) {
-                            Ok(asm) => {
-                                let mut emu = state.emulator.lock().unwrap();
+                let icmc_syntax = include_str!("../../res/icmc.toml");
 
-                                emu.load(&asm.binary());
-                                if let Ok(mut log_panel) =
-                                    state.log_panel.lock()
-                                {
-                                    log_panel.add_log(
-                                        "Assembly successful! Binary loaded."
-                                            .to_string(),
-                                    );
-                                }
-                            }
-                            Err(_) => {
-                                if let Ok(mut log_panel) =
-                                    state.log_panel.lock()
-                                {
-                                    log_panel.add_log(
-                                        "Assembly error: syntax error"
-                                            .to_string(),
-                                    );
-                                }
-                            }
-                        }
-                    }) {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(
-                                "Assembly error: syntax error".to_string(),
-                            );
-                        }
-
-                        return;
-                    }
+                if let Ok(mut log_panel) = state.log_panel.lock() {
+                    log_panel.auto_scroll();
                 }
 
-                #[cfg(not(target_family = "wasm"))]
-                {
-                    let mut fs = state.fs.lock().unwrap();
-                    let icmc_syntax = include_str!("../../res/icmc.toml");
+                match assembler::assemble_from_buf(
+                    &code_buf,
+                    icmc_syntax,
+                ) {
+                    Ok(asm) => {
+                        let mut emu = state.emulator.lock().unwrap();
 
-                    let syntax_path = &format!(
-                        "{}/icmc.toml",
-                        state.ide_path.clone().unwrap().display()
-                    );
-
-                    if let Err(e) =
-                        fs.write(syntax_path, icmc_syntax.as_bytes())
-                    {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!(
-                                "Failed to write .icmc.toml: {}",
-                                e
-                            ));
-                        }
-                        return;
-                    }
-
-                    let open_file = match state.open_file {
-                        Some(f) => f.to_str().unwrap(),
-                        &mut None => todo!(),
-                    };
-
-                    if let Err(e) = fs.write(open_file, code_buf.as_bytes()) {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!(
-                                "Failed to write .code.asm: {}",
-                                e
-                            ));
-                        }
-                        return;
-                    }
-
-                    if let Ok(mut log_panel) = state.log_panel.lock() {
-                        log_panel.auto_scroll();
-                    }
-
-                    if let Err(_) = std::panic::catch_unwind(|| {
-                        match assembler::assemble(&fs, open_file, syntax_path) {
-                            Ok(asm) => {
-                                let mut emu = state.emulator.lock().unwrap();
-
-                                emu.load_program(&asm.binary());
-                                if let Ok(mut log_panel) =
-                                    state.log_panel.lock()
-                                {
-                                    log_panel.add_log(
-                                        "Assembly successful! Binary loaded."
-                                            .to_string(),
-                                    );
-                                }
-                            }
-                            Err(err) => {
-                                if let Ok(mut log_panel) =
-                                    state.log_panel.lock()
-                                {
-                                    log_panel.add_log(format!(
-                                        "Assembly error: {}",
-                                        err
-                                    ));
-
-                                    if let Some((line, col)) =
-                                        extract_line_column(&err)
-                                    {
-                                        log_panel.add_log(format!(
-                                            "    at line {}, column {}",
-                                            line, col
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }) {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                        emu.load_program(&asm.binary());
+                        if let Ok(mut log_panel) =
+                            state.log_panel.lock()
+                        {
                             log_panel.add_log(
-                                "Assembly error: syntax error".to_string(),
+                                "Assembly successful! Binary loaded."
+                                    .to_string(),
                             );
                         }
-
-                        return;
                     }
-                }
+                    Err(err) => {
+                        if let Ok(mut log_panel) =
+                            state.log_panel.lock()
+                        {
+                            log_panel.add_log(format!(
+                                "Error: {}",
+                                err
+                            ));
+                        }
+                    }
+                };
 
                 let freq = Arc::clone(&state.freq);
                 let emu = Arc::clone(&state.emulator);
@@ -287,7 +187,7 @@ impl ViewState for Editor {
             }
 
             if ui.button("Clear Editor").clicked() {
-                code_buf.clear();
+                mut_code_buf.clear();
             }
 
             ui.with_layout(
@@ -323,6 +223,36 @@ impl ViewState for Editor {
             ColorTheme::GITHUB_LIGHT
         };
 
+        /* Save with ctrl+S */
+        ctx.input_mut(|i| {
+            let modifiers = egui::Modifiers {
+                ctrl: true,
+                ..Default::default()
+            };
+
+            if i.consume_shortcut(
+                &egui::KeyboardShortcut::new(
+                    modifiers,
+                    egui::Key::S
+                )
+            ) {
+                let open_file = match state.open_file {
+                    Some(f) => f.to_str().unwrap(),
+                    &mut None => todo!(),
+                };
+
+                if let Err(e) = std::fs::write(open_file, &code_buf.as_bytes()) {
+                    if let Ok(mut log_panel) = state.log_panel.lock() {
+                        log_panel.add_log(format!(
+                            "Failed to write .code.asm: {}",
+                            e
+                        ));
+                    }
+                    return;
+                }
+            }
+        });
+
         CodeEditor::default()
             .id_source("asm_editor")
             .with_rows(0)
@@ -330,35 +260,6 @@ impl ViewState for Editor {
             .with_syntax(syntax::icmc())
             .with_theme(color_theme)
             .with_numlines(true)
-            .show(ui, code_buf);
-    }
-}
-
-fn extract_line_column(error_msg: &str) -> Option<(usize, usize)> {
-    let mut line = 0;
-    let mut col = 0;
-
-    if let Some(pos) = error_msg.find("line ") {
-        let rest = &error_msg[pos + 5..];
-        line = rest
-            .split_whitespace()
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
-    }
-
-    if let Some(pos) = error_msg.find("column ") {
-        let rest = &error_msg[pos + 7..];
-        col = rest
-            .split_whitespace()
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
-    }
-
-    if line > 0 || col > 0 {
-        Some((line, col))
-    } else {
-        None
+            .show(ui, mut_code_buf);
     }
 }

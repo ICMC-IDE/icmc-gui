@@ -38,6 +38,7 @@ impl ViewState for StatePanel {
                 let emu = Arc::clone(&state.emulator);
                 let ctx = ctx.clone();
 
+                #[cfg(not(target_arch = "wasm32"))]
                 if let Some(handle) = &state.emu_handle {
                     handle.abort();
                     let mut emu = emu.lock().unwrap();

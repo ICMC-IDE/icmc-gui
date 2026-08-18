@@ -22,6 +22,7 @@ fn main() -> eframe::Result {
     } else {
         todo!();
     };
+
     let ide_path = PathBuf::from(&ide_dir);
 
     if !ide_path.exists() {
@@ -43,6 +44,7 @@ fn main() {
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let web_options = eframe::WebOptions::default();
 
