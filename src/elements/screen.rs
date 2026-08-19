@@ -333,15 +333,10 @@ impl Screen {
 
 /* todo: render charmap into canvas */
 impl ViewState for Screen {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         /* handle keyboard input */
         if state.settings.input_enabled {
-            ctx.input(|i| {
+            ui.input(|i| {
                 for key in egui::Key::ALL {
                     if i.key_pressed(*key) {
                         let keycode = keycode(key);

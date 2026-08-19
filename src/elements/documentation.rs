@@ -20,7 +20,7 @@ enum Row {
 pub struct Documentation;
 
 impl View for Documentation {
-    fn ui(&mut self, ui: &mut egui::Ui, _ctx: &mut egui::Context) {
+    fn ui(&mut self, ui: &mut egui::Ui) {
         let rows =
             toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
                 .expect("Couldn't parse documentation TOML file")

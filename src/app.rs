@@ -18,6 +18,7 @@ use tokio::runtime;
 
 /* Emulator state */
 pub struct State<'a> {
+    pub egui_ctx: egui::Context,
     pub emulator: Arc<Mutex<Emulator>>,
     pub freq: Arc<Mutex<f64>>,
 
@@ -46,76 +47,39 @@ pub struct TabViewer<'a> {
     file_explorer: &'a mut FileExplorer,
     mem_editor: Arc<Mutex<MemEditor>>,
 
-    ctx: &'a mut egui::Context,
     open_tabs: &'a mut HashSet<String>,
     state: &'a mut State<'a>,
-    tree: &'a mut DockState<String>,
-}
-
-impl TabViewer<'_> {
-    fn focused_tab(&mut self) -> Option<String> {
-        let Some((_, tab)) = self.tree.find_active_focused() else {
-            return None;
-        };
-        Some(tab.to_string())
-    }
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = String;
+
+    fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
+        egui::Id::new(tab.as_str())
+    }
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
         tab.as_str().into()
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-        if let Some(focused) = self.focused_tab() {
-            self.state.settings.input_enabled = &focused == "Screen";
-        }
-
         match tab.as_str() {
-            "Charmap Editor" => {
-                let charmap_editor = &mut self.charmap_editor;
-                let state = &mut self.state;
-
-                charmap_editor.ui(ui, state, self.ctx);
-            }
-
-            "Screen" => {
-                let screen = &mut self.screen;
-                let state = &mut self.state;
-
-                screen.ui(ui, state, self.ctx);
-            }
-
-            "State" => {
-                let state_panel = &mut self.state_panel;
-                let state = &mut self.state;
-                state_panel.ui(ui, state, self.ctx);
-            }
-
-            "Code Editor" => {
-                let state = &mut self.state;
-                self.editor.ui(ui, state, self.ctx);
-            }
+            "Charmap Editor" => self.charmap_editor.ui(ui, self.state),
+            "Screen" => self.screen.ui(ui, self.state),
+            "State" => self.state_panel.ui(ui, self.state),
+            "Code Editor" => self.editor.ui(ui, self.state),
+            "File Explorer" => self.file_explorer.ui(ui, self.state),
+            "Documentation" => self.doc.ui(ui),
 
             "Log" => {
                 if let Ok(mut log_panel) = self.log_panel.lock() {
-                    log_panel.ui(ui, self.state, self.ctx);
+                    log_panel.ui(ui, self.state);
                 }
-            }
-
-            "File Explorer" => {
-                self.file_explorer.ui(ui, self.state, self.ctx);
-            }
-
-            "Documentation" => {
-                self.doc.ui(ui, self.ctx);
             }
 
             "Memory Editor" => {
                 if let Ok(mut mem_editor) = self.mem_editor.lock() {
-                    mem_editor.ui(ui, self.state, self.ctx);
+                    mem_editor.ui(ui, self.state);
                 }
             }
 
@@ -139,6 +103,7 @@ pub struct IdeApp {
     _nodes: HashMap<String, NodeIndex>,
 
     /* Core */
+    egui_ctx: egui::Context,
     emulator: Arc<Mutex<Emulator>>, /* Emulator backend*/
     freq: Arc<Mutex<f64>>,          /* Emulator running frequency */
 
@@ -263,6 +228,7 @@ impl IdeApp {
             open_tabs,
             _nodes: nodes,
 
+            egui_ctx: cc.egui_ctx.clone(),
             emulator,
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -411,83 +377,83 @@ impl IdeApp {
 }
 
 impl eframe::App for IdeApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.open_tabs.is_empty() {
-            let ctx = ctx.clone();
-            std::thread::spawn(move || {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            });
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
-
-        /* top menu */
-        egui::TopBottomPanel::top("Top Bar").show(ctx, |ui| {
-            self.bar_contents(ui, frame);
-        });
 
         /* save altered settings to file */
         if self.settings.needs_save {
             let toml = toml::to_string(&self.settings).unwrap();
 
             if let Some(path) = self.ide_path.clone() {
-                match std::fs::write(
-                    format!("{}/settings.toml", path.display()),
-                    toml,
-                ) {
-                    Ok(_) => (),
-                    Err(_) => {
-                        println!("Couldn't write settings.toml");
-                    }
-                };
+                if std::fs::write(format!("{}/settings.toml", path.display()), toml).is_err() {
+                    println!("Couldn't write settings.toml");
+                }
             } else {
                 println!("Couldn't find path");
             }
 
             self.settings.clear_save_flag();
         }
+    }
 
-        let mut state = State {
-            emulator: self.emulator.clone(),
-            freq: self.freq.clone(),
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        /* top menu */
+        egui::Panel::top("Top Bar").show(ui, |ui| {
+            self.bar_contents(ui, frame);
+        });
 
-            #[cfg(not(target_arch = "wasm32"))]
-            emu_handle: &mut self.emu_handle,
-            #[cfg(not(target_arch = "wasm32"))]
-            rt: &mut self.rt,
+        egui::CentralPanel::default().show(ui, |ui| {
+            let focused_tab = self.tree.find_active_focused().map(|(_, tab)| tab.clone());
 
-            running: self.running.clone(),
-            code_buf: &mut self.code_buf,
-            log_panel: self.log_panel.clone(),
-            mem_editor: self.mem_editor.clone(),
-            ide_path: &mut self.ide_path,
-            open_file: &mut self.open_file,
-            settings: &mut self.settings,
-        };
+            let mut state = State {
+                egui_ctx: self.egui_ctx.clone(),
+                emulator: self.emulator.clone(),
+                freq: self.freq.clone(),
 
-        let mut tab_viewer = TabViewer {
-            charmap_editor: &mut self.charmap_editor,
-            editor: &mut self.editor,
-            doc: &mut self.doc,
-            screen: &mut self.screen,
-            state_panel: &mut self.state_panel,
-            file_explorer: &mut self.file_explorer,
-            ctx: &mut ctx.clone(),
-            open_tabs: &mut self.open_tabs,
-            state: &mut state,
-            tree: &mut self.tree.clone(),
-            log_panel: self.log_panel.clone(),
-            mem_editor: self.mem_editor.clone(),
-        };
+                #[cfg(not(target_arch = "wasm32"))]
+                emu_handle: &mut self.emu_handle,
+                #[cfg(not(target_arch = "wasm32"))]
+                rt: &mut self.rt,
 
-        /* dock area */
-        DockArea::new(&mut self.tree)
-            .style({
-                let mut style = Style::from_egui(ctx.style().as_ref());
-                style.tab_bar.fill_tab_bar = true;
-                style
-            })
-            .show_close_buttons(true)
-            .show_leaf_close_all_buttons(false)
-            .show(ctx, &mut tab_viewer);
+                running: self.running.clone(),
+                code_buf: &mut self.code_buf,
+                log_panel: self.log_panel.clone(),
+                mem_editor: self.mem_editor.clone(),
+                ide_path: &mut self.ide_path,
+                open_file: &mut self.open_file,
+                settings: &mut self.settings,
+            };
+
+            if let Some(focused) = &focused_tab {
+                state.settings.input_enabled = focused == "Screen";
+            }
+
+            let mut tab_viewer = TabViewer {
+                charmap_editor: &mut self.charmap_editor,
+                editor: &mut self.editor,
+                doc: &mut self.doc,
+                screen: &mut self.screen,
+                state_panel: &mut self.state_panel,
+                file_explorer: &mut self.file_explorer,
+                open_tabs: &mut self.open_tabs,
+                state: &mut state,
+                log_panel: self.log_panel.clone(),
+                mem_editor: self.mem_editor.clone(),
+            };
+
+            /* dock area */
+            DockArea::new(&mut self.tree)
+                .style({
+                    let mut style = Style::from_egui(ui.ctx().global_style().as_ref());
+                    style.tab_bar.fill_tab_bar = true;
+                    style
+                })
+                .show_close_buttons(true)
+                .show_leaf_close_all_buttons(false)
+                .show_inside(ui, &mut tab_viewer);
+        });
     }
 
     fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {

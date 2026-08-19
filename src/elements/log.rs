@@ -30,12 +30,7 @@ impl LogPanel {
 }
 
 impl ViewState for LogPanel {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        _state: &mut State,
-        _ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, _state: &mut State) {
         ui.add_space(10.0);
 
         ui.horizontal(|ui| {

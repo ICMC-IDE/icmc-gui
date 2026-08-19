@@ -36,12 +36,7 @@ impl FileExplorer {
 }
 
 impl ViewState for FileExplorer {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        _ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         let paths: Vec<std::path::PathBuf> =
             self.entries.iter().map(|e| e.path()).collect();
 

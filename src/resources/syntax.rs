@@ -2,14 +2,8 @@ use egui_code_editor::Syntax;
 use std::collections::BTreeSet;
 
 pub fn icmc() -> Syntax {
-    Syntax {
-        language: "ICMC Assembly",
-        case_sensitive: true,
-        comment: ";",
-        comment_multiline: ["/*", "*/"],
-        hyperlinks: BTreeSet::from(["http"]),
-        keywords: include_str!("../../res/syntax/keywords").lines().collect(),
-        types: BTreeSet::from([]),
-        special: include_str!("../../res/syntax/regs").lines().collect(),
-    }
+    Syntax::new("ICMC Assembly")
+        .with_comment(";")
+        .with_keywords(include_str!("../../res/syntax/keywords").lines().collect::<BTreeSet<_>>())
+        .with_special(include_str!("../../res/syntax/regs").lines().collect::<BTreeSet<_>>())
 }

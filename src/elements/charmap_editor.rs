@@ -6,12 +6,7 @@ use crate::resources::charmap::Charmap;
 pub struct CharmapEditor {}
 
 impl ViewState for CharmapEditor {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        _ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         ui.horizontal(|ui| {
             if ui.button("Import").clicked() {
                 #[cfg(target_arch = "wasm32")]

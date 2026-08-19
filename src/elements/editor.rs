@@ -9,12 +9,7 @@ use std::sync::{Arc, atomic::Ordering};
 pub struct Editor;
 
 impl ViewState for Editor {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         let mut_code_buf = state.code_buf.get_or_insert_with(|| {
             include_str!("../../res/example.asm").to_owned()
         });
@@ -86,7 +81,7 @@ impl ViewState for Editor {
 
                 let freq = Arc::clone(&state.freq);
                 let emu = Arc::clone(&state.emulator);
-                let ctx = ctx.clone();
+                let ctx = state.egui_ctx.clone();
 
                 let running = Arc::clone(&state.running);
 
@@ -224,7 +219,7 @@ impl ViewState for Editor {
         };
 
         /* Save with ctrl+S */
-        ctx.input_mut(|i| {
+        ui.input_mut(|i| {
             let modifiers = egui::Modifiers {
                 ctrl: true,
                 ..Default::default()
@@ -257,9 +252,8 @@ impl ViewState for Editor {
             .id_source("asm_editor")
             .with_rows(0)
             .with_fontsize(state.settings.font_size)
-            .with_syntax(syntax::icmc())
             .with_theme(color_theme)
             .with_numlines(true)
-            .show(ui, mut_code_buf);
+            .show(ui, mut_code_buf, &syntax::icmc());
     }
 }

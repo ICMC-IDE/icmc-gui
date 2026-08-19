@@ -61,12 +61,7 @@ impl MemEditor {
 }
 
 impl ViewState for MemEditor {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        _ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         ui.add_space(10.0);
         ui.set_min_size(ui.available_size());
         ui.set_max_size(ui.available_size());

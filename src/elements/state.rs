@@ -21,12 +21,7 @@ impl StatePanel {
 }
 
 impl ViewState for StatePanel {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &mut State,
-        ctx: &mut egui::Context,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         let mut freq = state.freq.lock().unwrap();
 
         ui.set_min_size(ui.available_size());
@@ -36,7 +31,7 @@ impl ViewState for StatePanel {
             if ui.button("Run").clicked() {
                 let freq = Arc::clone(&state.freq);
                 let emu = Arc::clone(&state.emulator);
-                let ctx = ctx.clone();
+                let ctx = state.egui_ctx.clone();
 
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(handle) = &state.emu_handle {
