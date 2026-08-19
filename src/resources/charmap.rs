@@ -51,74 +51,73 @@ impl Charmap {
             Charmap::new(char_width, char_height, num_colors, num_chars);
 
         charmap.bytes = bytes;
+        charmap.color_palette =
+            Self::parse_palette(include_str!("../../res/8bit.json"));
+        charmap.pixels = charmap.render_pixels();
 
-        let json_str = include_str!("../../res/8bit.json");
-        let clean = json_str
+        charmap
+    }
+
+    fn parse_palette(json_str: &str) -> Vec<u8> {
+        json_str
             .trim()
-            .trim_start_matches("[")
-            .trim_end_matches("]")
-            .replace('"', "")
-            .replace(|c: char| c.is_whitespace(), "");
+            .trim_matches(|c| c == '[' || c == ']')
+            .split(',')
+            .flat_map(|entry| {
+                let hex = entry.trim().trim_matches('"');
+                let channel = |offset| {
+                    u8::from_str_radix(&hex[offset..offset + 2], 16).unwrap()
+                };
 
-        let hex_colors: Vec<&str> = clean.split(",").collect();
+                [channel(1), channel(3), channel(5), 0xff]
+            })
+            .collect()
+    }
 
-        let mut palette: Vec<u8> = Vec::with_capacity(hex_colors.len() * 4);
+    fn render_pixels(&self) -> Vec<u8> {
+        let num_colors = self.color_palette.len() / 4;
+        let num_chars = self.bytes.len() / self.char_height;
+        let screen_width = self.char_width * num_colors;
+        let screen_height = self.char_height * num_chars;
 
-        for hex in hex_colors {
-            let r = u8::from_str_radix(&hex[1..3], 16).unwrap();
-            let g = u8::from_str_radix(&hex[3..5], 16).unwrap();
-            let b = u8::from_str_radix(&hex[5..7], 16).unwrap();
+        let mut pixels = vec![0u8; screen_width * screen_height * 4];
 
-            palette.extend_from_slice(&[r, g, b, 0xff]);
-        }
+        for (color_idx, color) in self.color_palette.chunks_exact(4).enumerate()
+        {
+            let (mut r, mut g, mut b, a) =
+                (color[0], color[1], color[2], color[3]);
 
-        charmap.color_palette = palette;
-
-        let num_colors = charmap.color_palette.len() / 4;
-        let num_chars = charmap.bytes.len() / charmap.char_height;
-        let screen_width = charmap.char_width * num_colors;
-        let screen_height = charmap.char_height * num_chars;
-        let mut pixels = vec![0u8; screen_height * screen_width * 4];
-
-        for color_idx in 0..num_colors {
-            let color_start_idx = color_idx * 4;
-            let r_base = charmap.color_palette[color_start_idx];
-            let g_base = charmap.color_palette[color_start_idx + 1];
-            let b_base = charmap.color_palette[color_start_idx + 2];
-            let a_base = charmap.color_palette[color_start_idx + 3];
+            /* non-white colors are drawn inverted */
+            if (r, g, b) != (0xff, 0xff, 0xff) {
+                r ^= 0xff;
+                g ^= 0xff;
+                b ^= 0xff;
+            }
 
             for char_idx in 0..num_chars {
-                for byte_idx in 0..charmap.char_height {
-                    let data_byte_index =
-                        char_idx * charmap.char_height + byte_idx;
-                    let data_byte = charmap.bytes[data_byte_index];
+                let row_start = char_idx * self.char_height;
 
-                    for bit_offset in 0..charmap.char_width {
-                        let bit_value = (data_byte >> (7 - bit_offset)) & 1;
-                        let x_pos =
-                            (color_idx * charmap.char_width) + bit_offset;
-                        let y_pos = (char_idx * charmap.char_height) + byte_idx;
-                        let pixel_index = (y_pos * screen_width + x_pos) * 4;
+                for byte_idx in 0..self.char_height {
+                    let data_byte = self.bytes[row_start + byte_idx];
+                    let y_pos = row_start + byte_idx;
 
-                        if bit_value == 1 {
-                            pixels[pixel_index] = r_base;
-                            pixels[pixel_index + 1] = g_base;
-                            pixels[pixel_index + 2] = b_base;
-                            pixels[pixel_index + 3] = a_base;
+                    for bit_offset in 0..self.char_width {
+                        let bit_set = (data_byte >> (7 - bit_offset)) & 1 == 1;
+                        let x_pos = color_idx * self.char_width + bit_offset;
+                        let pixel = (y_pos * screen_width + x_pos) * 4;
+                        let rgba = if bit_set {
+                            [r, g, b, a]
                         } else {
-                            pixels[pixel_index] = 0;
-                            pixels[pixel_index + 1] = 0;
-                            pixels[pixel_index + 2] = 0;
-                            pixels[pixel_index + 3] = 0xFF;
-                        }
+                            [0, 0, 0, 0xff]
+                        };
+
+                        pixels[pixel..pixel + 4].copy_from_slice(&rgba);
                     }
                 }
             }
         }
 
-        charmap.pixels = pixels;
-
-        charmap
+        pixels
     }
 
     pub fn pixels(&self) -> &[u8] {
