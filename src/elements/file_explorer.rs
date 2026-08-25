@@ -53,7 +53,11 @@ impl ViewState for FileExplorer {
                         .save_file()
                     {
                         if let Err(e) = std::fs::File::create(path) {
-                            eprintln!("Couldn't create file: {}", e);
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel.add_log(format!(
+                                    "Couldn't create file: {e}"
+                                ));
+                            }
                         } else {
                             self.entries = Self::read_dir(&self.current_path);
                         }
@@ -82,7 +86,11 @@ impl ViewState for FileExplorer {
                             .join(path.file_name().unwrap_or_default());
 
                         if let Err(e) = std::fs::copy(&path, &dest) {
-                            eprintln!("Couldn't copy file: {}", e);
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel.add_log(format!(
+                                    "Couldn't copy file: {e}"
+                                ));
+                            }
                         } else {
                             self.entries = Self::read_dir(&self.current_path);
                         }

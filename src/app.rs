@@ -306,11 +306,12 @@ impl IdeApp {
             .and_then(|toml_str| toml::from_str(&toml_str).ok())
             .unwrap_or_default();
 
-        std::fs::write(
-                example_path.to_str().unwrap(),
-                include_str!("../res/example.asm").to_owned().as_bytes(),
-        )
-        .expect("Can't write to workspace directory");
+        if let Err(e) = std::fs::write(
+            example_path.to_str().unwrap(),
+            include_str!("../res/example.asm").to_owned().as_bytes(),
+        ) {
+            eprintln!("Couldn't write example.asm to workspace directory: {e}");
+        }
 
         let charmap = settings.charmap.clone();
 

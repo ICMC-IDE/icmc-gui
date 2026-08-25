@@ -1,7 +1,8 @@
 #![warn(clippy::all)]
 
 use icmc_gui::IdeApp;
-use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::{Path, PathBuf};
 
 /* native */
 #[cfg(not(target_arch = "wasm32"))]
@@ -12,34 +13,36 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    /* Create local directory if it doesn't exist */
-    let ide_dir = if cfg!(unix) {
-        match std::env::var_os("HOME") {
-            Some(v) => format!("{}/.icmc_ide/", v.into_string().unwrap()),
-            None => "./.icmc_ide/".to_owned(),
-        }
-    } else if cfg!(windows) {
-        match std::env::var_os("LOCALAPPDATA") {
-            Some(v) => format!("{}\\icmc_ide\\", v.into_string().unwrap()),
-            None => ".\\.icmc_ide\\".to_owned(),
-        }
-    } else {
-        todo!();
-    };
-
-    let ide_path = PathBuf::from(&ide_dir);
-
-    if !ide_path.exists() {
-        std::fs::create_dir(&ide_path).expect("Couldn't create local dir");
-        std::fs::create_dir(format!("{}/workspace", ide_path.display()))
-            .expect("Couldn't create workspace dir");
-    }
+    let ide_path = ide_dir();
 
     eframe::run_native(
         "ICMC IDE (native)", /* title */
         native_options,      /* options */
         Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, Some(ide_path))))), /* creation ctx */
     )
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn ide_dir() -> PathBuf {
+    if let Some(docs) = dirs::document_dir() {
+        let path = docs.join("ICMC IDE");
+        if ensure_writable_dir(&path).is_ok() {
+            return path;
+        }
+    }
+
+    let fallback = PathBuf::from(".icmc_ide");
+    ensure_writable_dir(&fallback).expect("Couldn't create local dir");
+    fallback
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn ensure_writable_dir(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(path.join("workspace"))?;
+
+    let probe = path.join(".write_test");
+    std::fs::write(&probe, b"")?;
+    std::fs::remove_file(&probe)
 }
 
 #[cfg(target_arch = "wasm32")]

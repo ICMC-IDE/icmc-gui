@@ -47,8 +47,14 @@ impl ViewState for CharmapEditor {
                             mif::Radix::Bin,
                         );
 
-                        std::fs::write(path, format!("{}", mif))
-                            .expect("Can't write to the workspace directory");
+                        if let Err(e) = std::fs::write(path, format!("{}", mif))
+                        {
+                            if let Ok(mut log_panel) = state.log_panel.lock() {
+                                log_panel.add_log(format!(
+                                    "Failed to export charmap: {e}"
+                                ));
+                            }
+                        }
                     }
                 }
             }

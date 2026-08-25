@@ -3,8 +3,21 @@ use crate::{State, resources::radix::Radix};
 use egui_dock::egui;
 use std::sync::{Arc, atomic::Ordering};
 
-#[derive(Default)]
-pub struct StatePanel;
+pub struct StatePanel {
+    last_status: &'static str,
+    last_regs: [u16; 8],
+    last_iregs: [u16; 6],
+}
+
+impl Default for StatePanel {
+    fn default() -> Self {
+        Self {
+            last_status: "Paused",
+            last_regs: [0; 8],
+            last_iregs: [0; 6],
+        }
+    }
+}
 
 impl StatePanel {
     fn reg_fmt<'a>(
@@ -17,6 +30,17 @@ impl StatePanel {
             Radix::Hex => dv.hexadecimal(4, false, true),
             Radix::Octal => dv.octal(6, false),
         }
+    }
+
+    fn reg_row(
+        ui: &mut egui::Ui,
+        label: &str,
+        value: &mut u16,
+        radix: Radix,
+        enabled: bool,
+    ) {
+        ui.label(label);
+        ui.add_enabled(enabled, Self::reg_fmt(egui::DragValue::new(value), radix));
     }
 }
 
@@ -53,7 +77,7 @@ impl ViewState for StatePanel {
 
         /* Current emulator status */
         if let Ok(emu) = state.emulator.try_lock() {
-            let status = if Arc::clone(&state.running).load(Ordering::SeqCst) {
+            self.last_status = if Arc::clone(&state.running).load(Ordering::SeqCst) {
                 "Running"
             } else {
                 match emu.state() {
@@ -65,11 +89,9 @@ impl ViewState for StatePanel {
                     }
                 }
             };
-
-            ui.label(format!("State: {}", status));
-        } else {
-            ui.label("State: (emulator busy)");
         }
+
+        ui.label(format!("State: {}", self.last_status));
 
         let mut freq = state.freq.lock().unwrap();
         ui.add(
@@ -108,70 +130,91 @@ impl ViewState for StatePanel {
         );
 
         /* some CPU internals */
+        let radix = state.settings.radix;
+
         if let Ok(mut emu) = state.emulator.try_lock() {
             ui.label("Registers");
             ui.horizontal(|ui| {
                 for i in 0..4 {
-                    ui.label(format!("R{}: ", i));
-                    ui.add(Self::reg_fmt(
-                        egui::DragValue::new(emu.reg_as_mut_ref(i)),
-                        state.settings.radix,
-                    ));
+                    Self::reg_row(
+                        ui,
+                        &format!("R{i}: "),
+                        emu.reg_as_mut_ref(i),
+                        radix,
+                        true,
+                    );
                 }
             });
 
             ui.horizontal(|ui| {
                 for i in 4..8 {
-                    ui.label(format!("R{}: ", i));
-                    ui.add(Self::reg_fmt(
-                        egui::DragValue::new(emu.reg_as_mut_ref(i)),
-                        state.settings.radix,
-                    ));
+                    Self::reg_row(
+                        ui,
+                        &format!("R{i}: "),
+                        emu.reg_as_mut_ref(i),
+                        radix,
+                        true,
+                    );
                 }
             });
 
             ui.label("Internal Registers");
             ui.horizontal(|ui| {
-                ui.label(format!("FR: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(0)),
-                    state.settings.radix,
-                ));
-
-                ui.label(format!("SP: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(1)),
-                    state.settings.radix,
-                ));
-
-                ui.label(format!("PC: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(2)),
-                    state.settings.radix,
-                ));
-
-                ui.label(format!("IR: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(3)),
-                    state.settings.radix,
-                ));
+                Self::reg_row(ui, "FR: ", emu.ireg_as_mut_ref(0), radix, true);
+                Self::reg_row(ui, "SP: ", emu.ireg_as_mut_ref(1), radix, true);
+                Self::reg_row(ui, "PC: ", emu.ireg_as_mut_ref(2), radix, true);
+                Self::reg_row(ui, "IR: ", emu.ireg_as_mut_ref(3), radix, true);
             });
 
             ui.horizontal(|ui| {
-                ui.label(format!("KB: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(4)),
-                    state.settings.radix,
-                ));
-
-                ui.label(format!("WC: "));
-                ui.add(Self::reg_fmt(
-                    egui::DragValue::new(emu.ireg_as_mut_ref(5)),
-                    state.settings.radix,
-                ));
+                Self::reg_row(ui, "KB: ", emu.ireg_as_mut_ref(4), radix, true);
+                Self::reg_row(ui, "WC: ", emu.ireg_as_mut_ref(5), radix, true);
             });
+
+            for i in 0..8 {
+                self.last_regs[i] = emu.reg(i as u16);
+            }
+            for i in 0..6 {
+                self.last_iregs[i] = emu.ireg(i as u16);
+            }
         } else {
-            ui.label("Registers: (emulator busy)");
+            ui.label("Registers");
+            ui.horizontal(|ui| {
+                for i in 0..4 {
+                    Self::reg_row(
+                        ui,
+                        &format!("R{i}: "),
+                        &mut self.last_regs[i],
+                        radix,
+                        false,
+                    );
+                }
+            });
+
+            ui.horizontal(|ui| {
+                for i in 4..8 {
+                    Self::reg_row(
+                        ui,
+                        &format!("R{i}: "),
+                        &mut self.last_regs[i],
+                        radix,
+                        false,
+                    );
+                }
+            });
+
+            ui.label("Internal Registers");
+            ui.horizontal(|ui| {
+                Self::reg_row(ui, "FR: ", &mut self.last_iregs[0], radix, false);
+                Self::reg_row(ui, "SP: ", &mut self.last_iregs[1], radix, false);
+                Self::reg_row(ui, "PC: ", &mut self.last_iregs[2], radix, false);
+                Self::reg_row(ui, "IR: ", &mut self.last_iregs[3], radix, false);
+            });
+
+            ui.horizontal(|ui| {
+                Self::reg_row(ui, "KB: ", &mut self.last_iregs[4], radix, false);
+                Self::reg_row(ui, "WC: ", &mut self.last_iregs[5], radix, false);
+            });
         }
     }
 }
