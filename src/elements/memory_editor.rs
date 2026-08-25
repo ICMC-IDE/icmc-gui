@@ -88,22 +88,6 @@ impl ViewState for MemEditor {
             self.last_selected_index = self.selected_index;
         }
 
-        let ram_hex: Vec<String> =
-            emu.ram().iter().map(|val| format!("{:04X}", val)).collect();
-
-        let ram_char: Vec<char> = emu
-            .ram()
-            .iter()
-            .map(|&x| {
-                let byte = x as u8;
-                if byte >= 0x20 && byte <= 0x7E {
-                    byte as char
-                } else {
-                    '.'
-                }
-            })
-            .collect();
-
         ui.columns(2, |columns| {
             columns[0].label("Address");
             columns[1].label("Value");
@@ -112,7 +96,7 @@ impl ViewState for MemEditor {
                 egui::ScrollArea::vertical().show_rows(
                     ui,
                     1.0 / ui.available_height(),
-                    ram_hex.len(),
+                    ram_len,
                     |ui, row_range| {
                         ui.columns(2, |columns| {
                             columns[0].vertical(|ui| {
@@ -159,18 +143,21 @@ impl ViewState for MemEditor {
                                                 egui::Color32::BLACK
                                             };
 
+                                        let hex =
+                                            format!("{:04X}", emu.ram()[i]);
+
                                         let style = if is_selected {
-                                            egui::RichText::new(&ram_hex[i])
+                                            egui::RichText::new(hex)
                                                 .background_color(
                                                     highlight_color,
                                                 )
                                                 .color(text_color_on_highlight)
                                         } else if is_hovered {
-                                            egui::RichText::new(&ram_hex[i])
+                                            egui::RichText::new(hex)
                                                 .background_color(hover_color)
                                                 .color(text_color_on_hover)
                                         } else {
-                                            egui::RichText::new(&ram_hex[i])
+                                            egui::RichText::new(hex)
                                         };
 
                                         let response = ui.add(
@@ -230,18 +217,26 @@ impl ViewState for MemEditor {
                                                 egui::Color32::BLACK
                                             };
 
+                                        let byte = emu.ram()[i] as u8;
+                                        let ch = if (0x20..=0x7E).contains(&byte)
+                                        {
+                                            byte as char
+                                        } else {
+                                            '.'
+                                        };
+
                                         let style = if is_selected {
-                                            egui::RichText::new(ram_char[i])
+                                            egui::RichText::new(ch)
                                                 .background_color(
                                                     highlight_color,
                                                 )
                                                 .color(text_color_on_highlight)
                                         } else if is_hovered {
-                                            egui::RichText::new(ram_char[i])
+                                            egui::RichText::new(ch)
                                                 .background_color(hover_color)
                                                 .color(text_color_on_hover)
                                         } else {
-                                            egui::RichText::new(ram_char[i])
+                                            egui::RichText::new(ch)
                                         };
 
                                         let response = ui.add(

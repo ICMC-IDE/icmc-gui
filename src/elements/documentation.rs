@@ -16,11 +16,12 @@ enum Row {
     },
 }
 
-#[derive(Default)]
-pub struct Documentation;
+pub struct Documentation {
+    rows: Vec<Row>,
+}
 
-impl View for Documentation {
-    fn ui(&mut self, ui: &mut egui::Ui) {
+impl Default for Documentation {
+    fn default() -> Self {
         let rows =
             toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
                 .expect("Couldn't parse documentation TOML file")
@@ -34,6 +35,12 @@ impl View for Documentation {
                     "Couldn't parse instructions array from documentation file",
                 );
 
+        Self { rows }
+    }
+}
+
+impl View for Documentation {
+    fn ui(&mut self, ui: &mut egui::Ui) {
         let _table = TableBuilder::new(ui)
             .striped(false)
             .resizable(false)
@@ -53,12 +60,12 @@ impl View for Documentation {
                 });
             })
             .body(|mut body| {
-                for row in rows {
+                for row in &self.rows {
                     match row {
                         Row::Header { title } => {
                             body.row(22.0, |mut row| {
                                 row.col(|ui| {
-                                    ui.strong(title);
+                                    ui.strong(title.as_str());
                                 });
                             });
                         }
@@ -69,13 +76,13 @@ impl View for Documentation {
                         } => {
                             body.row(20.0, |mut row| {
                                 row.col(|ui| {
-                                    ui.label(mnem);
+                                    ui.label(mnem.as_str());
                                 });
                                 row.col(|ui| {
-                                    ui.label(opcode);
+                                    ui.label(opcode.as_str());
                                 });
                                 row.col(|ui| {
-                                    ui.label(pseudo);
+                                    ui.label(pseudo.as_str());
                                 });
                             });
                         }

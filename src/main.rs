@@ -6,7 +6,11 @@ use std::path::PathBuf;
 /* native */
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_min_inner_size([780.0, 530.0]),
+        ..Default::default()
+    };
 
     /* Create local directory if it doesn't exist */
     let ide_dir = if cfg!(unix) {

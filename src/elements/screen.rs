@@ -17,6 +17,7 @@ pub struct ScrCanvas {
     lines: u32,
     char_width: u32,
     char_height: u32,
+    last_vram: Option<Vec<u8>>,
 }
 
 pub struct Screen {
@@ -167,6 +168,7 @@ impl ScrCanvas {
                 lines: 30,
                 char_width: 8,
                 char_height: 8,
+                last_vram: None,
             }
         }
     }
@@ -179,7 +181,7 @@ impl ScrCanvas {
         }
     }
 
-    fn draw(&self, gl: &glow::Context, vram: &[u8], charmap: Option<&Charmap>) {
+    fn draw(&mut self, gl: &glow::Context, vram: &[u8], charmap: Option<&Charmap>) {
         use glow::HasContext as _;
 
         unsafe {
@@ -221,12 +223,16 @@ impl ScrCanvas {
             gl.use_program(Some(self.program));
 
             gl.bind_vertex_array(Some(self.vao));
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.instance_vbo));
-            gl.buffer_data_u8_slice(
-                glow::ARRAY_BUFFER,
-                vram,
-                glow::STATIC_DRAW,
-            );
+
+            if self.last_vram.as_deref() != Some(vram) {
+                gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.instance_vbo));
+                gl.buffer_data_u8_slice(
+                    glow::ARRAY_BUFFER,
+                    vram,
+                    glow::DYNAMIC_DRAW,
+                );
+                self.last_vram = Some(vram.to_vec());
+            }
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
@@ -305,8 +311,7 @@ impl Screen {
 
         let (_, rect) = ui.allocate_space(square_size);
         let canvas = self.canvas.clone();
-        let vram = bytemuck::cast_slice(state.emulator.lock().unwrap().vram())
-            .to_vec();
+        let emulator = state.emulator.clone();
 
         let charmap = if state.settings.charmap.needs_reload {
             state.settings.charmap.needs_reload = false;
@@ -319,9 +324,12 @@ impl Screen {
             rect,
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
                 move |_info, painter| {
+                    let emu = emulator.lock().unwrap();
+                    let vram: &[u8] = bytemuck::cast_slice(emu.vram());
+
                     canvas.lock().expect("Couldn't unlock canvas").draw(
                         painter.gl(),
-                        &vram,
+                        vram,
                         charmap.as_ref(),
                     );
                 },
