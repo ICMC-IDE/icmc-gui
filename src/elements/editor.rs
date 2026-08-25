@@ -3,20 +3,21 @@ use crate::State;
 use crate::resources::syntax;
 use egui_code_editor::{CodeEditor, ColorTheme};
 use egui_dock::egui;
-use std::sync::{Arc, atomic::Ordering};
 
 #[derive(Default)]
 pub struct Editor;
 
 impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
-        let mut_code_buf = state.code_buf.get_or_insert_with(|| {
-            include_str!("../../res/example.asm").to_owned()
-        });
+        let code_buf = state
+            .code_buf
+            .get_or_insert_with(|| {
+                include_str!("../../res/example.asm").to_owned()
+            })
+            .clone();
 
         ui.add_space(10.0);
 
-        let code_buf = mut_code_buf.to_owned();
         ui.horizontal(|ui| {
             if ui.button("Save").clicked() {
                 #[cfg(target_family = "wasm")]
@@ -31,7 +32,9 @@ impl ViewState for Editor {
                         &mut None => todo!(),
                     };
 
-                    if let Err(e) = std::fs::write(open_file, code_buf.as_bytes()) {
+                    if let Err(e) =
+                        std::fs::write(open_file, code_buf.as_bytes())
+                    {
                         if let Ok(mut log_panel) = state.log_panel.lock() {
                             log_panel.add_log(format!(
                                 "Failed to write .code.asm: {}",
@@ -50,139 +53,27 @@ impl ViewState for Editor {
                     log_panel.auto_scroll();
                 }
 
-                match assembler::assemble_from_buf(
-                    &code_buf,
-                    icmc_syntax,
-                ) {
+                match assembler::assemble_from_buf(&code_buf, icmc_syntax) {
                     Ok(asm) => {
-                        let mut emu = state.emulator.lock().unwrap();
-
-                        emu.load_program(&asm.binary());
-                        if let Ok(mut log_panel) =
-                            state.log_panel.lock()
-                        {
-                            log_panel.add_log(
-                                "Assembly successful! Binary loaded."
-                                    .to_string(),
-                            );
-                        }
+                        state
+                            .emulator
+                            .lock()
+                            .unwrap()
+                            .load_program(&asm.binary());
+                        state.spawn_run_loop();
                     }
                     Err(err) => {
-                        if let Ok(mut log_panel) =
-                            state.log_panel.lock()
-                        {
-                            log_panel.add_log(format!(
-                                "Error: {}",
-                                err
-                            ));
+                        if let Ok(mut log_panel) = state.log_panel.lock() {
+                            log_panel.add_log(format!("Error: {}", err));
                         }
                     }
                 };
-
-                let freq = Arc::clone(&state.freq);
-                let emu = Arc::clone(&state.emulator);
-                let ctx = state.egui_ctx.clone();
-
-                let running = Arc::clone(&state.running);
-
-                running.store(true, Ordering::SeqCst);
-
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    use std::time::{Duration, Instant};
-
-                    *state.emu_handle = Some(state.rt.spawn(async move {
-                        while running.load(Ordering::SeqCst) {
-                            let start = Instant::now();
-
-                            {
-                                let mut emu = emu.lock().unwrap();
-
-                                /* Stop if emulator is halted */
-                                if emu.state() == icmc_emulator::State::Halted {
-                                    running.store(false, Ordering::SeqCst);
-                                }
-
-                                emu.next();
-                            }
-
-                            /* ensure that egui doesn't stop rendering */
-                            ctx.request_repaint();
-
-                            let freq_val = {
-                                let f = freq.lock().unwrap();
-                                *f
-                            };
-
-                            let sleep_time =
-                                Duration::from_secs_f64(1.0 / freq_val);
-                            let elapsed = start.elapsed();
-
-                            if elapsed < sleep_time {
-                                tokio::time::sleep(sleep_time - elapsed).await;
-                            }
-                        }
-                    }));
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    use gloo_timers::future::TimeoutFuture;
-                    use std::cell::RefCell;
-                    use std::rc::Rc;
-                    use wasm_bindgen_futures::spawn_local;
-
-                    fn performance_now() -> f64 {
-                        web_sys::window().unwrap().performance().unwrap().now()
-                    }
-
-                    running.store(true, Ordering::SeqCst);
-
-                    let ticks_pending = Rc::new(RefCell::new(0.0));
-                    let last_tick = Rc::new(RefCell::new(performance_now()));
-
-                    spawn_local(async move {
-                        while running.load(Ordering::SeqCst) {
-                            let now = performance_now();
-                            let elapsed = now - *last_tick.borrow();
-                            *last_tick.borrow_mut() = now;
-
-                            let freq_val = {
-                                let f = freq.lock().unwrap();
-                                *f
-                            };
-
-                            *ticks_pending.borrow_mut() +=
-                                elapsed * freq_val * 1e-3;
-
-                            if *ticks_pending.borrow() > 1_000_000.0 {
-                                *ticks_pending.borrow_mut() = 1_000_000.0;
-                            }
-
-                            {
-                                let mut emu = emu.lock().unwrap();
-
-                                if emu.state() == icmc_emulator::State::Halted {
-                                    running.store(false, Ordering::SeqCst);
-                                    break;
-                                }
-
-                                let ticks_done = emu
-                                    .tick(*ticks_pending.borrow() as isize)
-                                    as f64;
-                                *ticks_pending.borrow_mut() -= ticks_done;
-                            }
-
-                            ctx.request_repaint();
-
-                            TimeoutFuture::new(0).await;
-                        }
-                    });
-                }
             }
 
             if ui.button("Clear Editor").clicked() {
-                mut_code_buf.clear();
+                if let Some(buf) = state.code_buf.as_mut() {
+                    buf.clear();
+                }
             }
 
             ui.with_layout(
@@ -225,18 +116,17 @@ impl ViewState for Editor {
                 ..Default::default()
             };
 
-            if i.consume_shortcut(
-                &egui::KeyboardShortcut::new(
-                    modifiers,
-                    egui::Key::S
-                )
-            ) {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(
+                modifiers,
+                egui::Key::S,
+            )) {
                 let open_file = match state.open_file {
                     Some(f) => f.to_str().unwrap(),
                     &mut None => todo!(),
                 };
 
-                if let Err(e) = std::fs::write(open_file, &code_buf.as_bytes()) {
+                if let Err(e) = std::fs::write(open_file, &code_buf.as_bytes())
+                {
                     if let Ok(mut log_panel) = state.log_panel.lock() {
                         log_panel.add_log(format!(
                             "Failed to write .code.asm: {}",
@@ -246,6 +136,10 @@ impl ViewState for Editor {
                     return;
                 }
             }
+        });
+
+        let mut_code_buf = state.code_buf.get_or_insert_with(|| {
+            include_str!("../../res/example.asm").to_owned()
         });
 
         CodeEditor::default()

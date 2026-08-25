@@ -10,7 +10,10 @@ use icmc_emulator::Emulator;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::{Arc, Mutex, atomic::AtomicBool},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -34,6 +37,95 @@ pub struct State<'a> {
     pub ide_path: &'a mut Option<PathBuf>,
     pub open_file: &'a mut Option<PathBuf>,
     pub settings: &'a mut Settings,
+}
+
+impl State<'_> {
+    pub fn spawn_run_loop(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(handle) = &self.emu_handle {
+            handle.abort();
+        }
+
+        let freq = Arc::clone(&self.freq);
+        let emu = Arc::clone(&self.emulator);
+        let running = Arc::clone(&self.running);
+        let ctx = self.egui_ctx.clone();
+
+        running.store(true, Ordering::SeqCst);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use std::time::{Duration, Instant};
+
+            *self.emu_handle = Some(self.rt.spawn(async move {
+                let mut last = Instant::now();
+                let mut ticks_pending = 0.0;
+
+                while running.load(Ordering::SeqCst) {
+                    let now = Instant::now();
+                    let freq_val = *freq.lock().unwrap();
+                    ticks_pending = (ticks_pending
+                        + (now - last).as_secs_f64() * freq_val)
+                        .min(1_000_000.0);
+                    last = now;
+
+                    {
+                        let mut emu = emu.lock().unwrap();
+                        let ticks = emu.tick(ticks_pending as isize);
+
+                        if emu.state() != icmc_emulator::State::Paused {
+                            running.store(false, Ordering::SeqCst);
+                            break;
+                        }
+
+                        ticks_pending -= ticks as f64;
+                    }
+
+                    ctx.request_repaint();
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            }));
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use gloo_timers::future::TimeoutFuture;
+            use wasm_bindgen_futures::spawn_local;
+
+            fn performance_now() -> f64 {
+                web_sys::window().unwrap().performance().unwrap().now()
+            }
+
+            spawn_local(async move {
+                let mut last = performance_now();
+                let mut ticks_pending = 0.0;
+
+                while running.load(Ordering::SeqCst) {
+                    let now = performance_now();
+                    let freq_val = *freq.lock().unwrap();
+                    ticks_pending = (ticks_pending
+                        + (now - last) * 1e-3 * freq_val)
+                        .min(1_000_000.0);
+                    last = now;
+
+                    {
+                        let mut emu = emu.lock().unwrap();
+                        let ticks = emu.tick(ticks_pending as isize);
+
+                        if emu.state() != icmc_emulator::State::Paused {
+                            running.store(false, Ordering::SeqCst);
+                            break;
+                        }
+
+                        ticks_pending -= ticks as f64;
+                    }
+
+                    ctx.request_repaint();
+                    TimeoutFuture::new(0).await;
+                }
+            });
+        }
+    }
 }
 
 /* Tab manager */
