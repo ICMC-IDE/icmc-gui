@@ -8,7 +8,7 @@ use egui_dock::tab_viewer::OnCloseResponse;
 use egui_dock::{DockArea, DockState, NodeIndex, Style, SurfaceIndex, egui};
 use icmc_emulator::Emulator;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -191,7 +191,6 @@ pub struct IdeApp {
     /* Tab/Dock related */
     tree: DockState<String>,
     open_tabs: HashSet<String>,
-    _nodes: HashMap<String, NodeIndex>,
 
     /* Core */
     egui_ctx: egui::Context,
@@ -226,11 +225,8 @@ impl IdeApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         ide_path: Option<PathBuf>,
+        settings: Settings,
     ) -> Self {
-        let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
-        let mut nodes = HashMap::new();
-        nodes.insert("Code Editor".to_owned(), NodeIndex::root());
-
         /* supress assembler panics */
         std::panic::set_hook(Box::new(|_info| {}));
 
@@ -247,46 +243,6 @@ impl IdeApp {
         let emu_handle = None;
         let running = Arc::new(AtomicBool::new(false));
 
-        /* Open docks in default configuration */
-        for tab in &["Screen", "State", "Log"] {
-            let (parent, fraction, split) = match *tab {
-                "Screen" => (NodeIndex::root(), 0.3, Split::Left),
-                "State" => {
-                    (nodes.get("Screen").copied().unwrap(), 0.5, Split::Below)
-                }
-                "Log" => (
-                    nodes.get("Code Editor").copied().unwrap(),
-                    0.7,
-                    Split::Below,
-                ),
-                _ => unreachable!(),
-            };
-
-            let [a, b] = tree.main_surface_mut().split(
-                parent,
-                split,
-                fraction,
-                egui_dock::Node::leaf((*tab).to_owned()),
-            );
-
-            nodes.insert((*tab).to_owned(), b);
-
-            if *tab == "Screen" {
-                /* Code Editor is not root anymore here */
-                nodes.insert("Code Editor".to_owned(), a);
-            }
-        }
-
-        let mut open_tabs = HashSet::new();
-
-        for node in tree[SurfaceIndex::main()].iter() {
-            if let Some(tabs) = node.tabs() {
-                for tab in tabs {
-                    open_tabs.insert(tab.clone());
-                }
-            }
-        }
-
         let root_path = ide_path
             .as_ref()
             .map(|path| PathBuf::from(path).join("workspace"));
@@ -296,15 +252,11 @@ impl IdeApp {
             .map(|root| root.join("example.asm"))
             .unwrap_or_else(|| PathBuf::from("example.asm"));
 
-        let settings_path = ide_path
-            .as_ref()
-            .map(|path| PathBuf::from(path).join("settings.toml"));
+        cc.egui_ctx.set_theme(settings.theme);
 
-        let settings: Settings = settings_path
-            .as_ref()
-            .and_then(|path| std::fs::read_to_string(path).ok())
-            .and_then(|toml_str| toml::from_str(&toml_str).ok())
-            .unwrap_or_default();
+        let tree = crate::resources::settings::load_dock_layout(ide_path.as_deref());
+        let open_tabs: HashSet<String> =
+            tree.iter_all_tabs().map(|(_, tab)| tab.clone()).collect();
 
         if let Err(e) = std::fs::write(
             example_path.to_str().unwrap(),
@@ -318,7 +270,6 @@ impl IdeApp {
         Self {
             tree,
             open_tabs,
-            _nodes: nodes,
 
             egui_ctx: cc.egui_ctx.clone(),
             emulator,
@@ -365,6 +316,11 @@ impl IdeApp {
         ui.add_space(2.0);
         ui.horizontal(|ui| {
             egui::widgets::global_theme_preference_switch(ui);
+
+            let theme = ui.ctx().options(|o| o.theme_preference);
+            if theme != self.settings.theme {
+                self.settings.theme = theme;
+            }
 
             for tab in &[
                 "Code Editor",
@@ -432,6 +388,10 @@ impl IdeApp {
                         }
                         self.open_tabs.insert((*tab).to_string());
                     }
+
+                    if let Some(path) = &self.ide_path {
+                        crate::resources::settings::save_dock_layout(path, &self.tree);
+                    }
                 }
             }
 
@@ -466,6 +426,24 @@ impl IdeApp {
 
         ui.add_space(2.0);
     }
+
+    fn save_settings_if_needed(&mut self) {
+        if !self.settings.needs_save {
+            return;
+        }
+
+        let toml = toml::to_string(&self.settings).unwrap();
+
+        if let Some(path) = self.ide_path.clone() {
+            if std::fs::write(format!("{}/settings.toml", path.display()), toml).is_err() {
+                println!("Couldn't write settings.toml");
+            }
+        } else {
+            println!("Couldn't find path");
+        }
+
+        self.settings.clear_save_flag();
+    }
 }
 
 impl eframe::App for IdeApp {
@@ -474,20 +452,7 @@ impl eframe::App for IdeApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
 
-        /* save altered settings to file */
-        if self.settings.needs_save {
-            let toml = toml::to_string(&self.settings).unwrap();
-
-            if let Some(path) = self.ide_path.clone() {
-                if std::fs::write(format!("{}/settings.toml", path.display()), toml).is_err() {
-                    println!("Couldn't write settings.toml");
-                }
-            } else {
-                println!("Couldn't find path");
-            }
-
-            self.settings.clear_save_flag();
-        }
+        self.save_settings_if_needed();
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -552,6 +517,12 @@ impl eframe::App for IdeApp {
         if let Some(handle) = &self.emu_handle {
             handle.abort();
         }
+
+        /* capture the final layout (e.g. any drag-resized splits) before saving */
+        if let Some(path) = &self.ide_path {
+            crate::resources::settings::save_dock_layout(path, &self.tree);
+        }
+        self.save_settings_if_needed();
 
         self.screen.destroy(gl);
     }

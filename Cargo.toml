@@ -14,8 +14,9 @@ eframe = { version = "0.36.1", default-features = false, features = [
     "default_fonts",
     "glow", # rendering backend (alternative: wgpu)
     "x11", # enable X11 support (alternative: wayland)
+    "persistence", # remember native window size/position across launches
 ] }
-egui_dock = "0.21.1"
+egui_dock = { version = "0.21.1", features = ["serde"] }
 bytemuck = "1.14"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }

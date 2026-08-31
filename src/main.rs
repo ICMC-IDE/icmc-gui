@@ -2,23 +2,31 @@
 
 use icmc_gui::IdeApp;
 #[cfg(not(target_arch = "wasm32"))]
+use icmc_gui::resources::settings::Settings;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
 /* native */
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
+    let ide_path = ide_dir();
+    let settings = Settings::load(Some(&ide_path));
+
+    let viewport = egui::ViewportBuilder::default()
+        .with_min_inner_size([780.0, 530.0]);
+
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_min_inner_size([780.0, 530.0]),
+        persist_window: true,
+        viewport,
         ..Default::default()
     };
-
-    let ide_path = ide_dir();
 
     eframe::run_native(
         "ICMC IDE (native)", /* title */
         native_options,      /* options */
-        Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, Some(ide_path))))), /* creation ctx */
+        Box::new(|cc| {
+            Ok(Box::new(<IdeApp>::new(cc, Some(ide_path), settings)))
+        }), /* creation ctx */
     )
 }
 
@@ -71,7 +79,13 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, None)))),
+                Box::new(|cc| {
+                    Ok(Box::new(<IdeApp>::new(
+                        cc,
+                        None,
+                        icmc_gui::resources::settings::Settings::default(),
+                    )))
+                }),
             )
             .await;
 
