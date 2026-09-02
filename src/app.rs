@@ -35,7 +35,6 @@ pub struct State<'a> {
     pub binary_file: &'a mut bool,
     pub log_panel: Arc<Mutex<LogPanel>>,
     pub ide_path: &'a mut Option<PathBuf>,
-    pub open_file: &'a mut Option<PathBuf>,
     pub workspace_path: PathBuf,
     pub settings: &'a mut Settings,
 }
@@ -134,9 +133,9 @@ impl State<'_> {
 
         #[cfg(not(target_family = "wasm"))]
         {
-            let open_file = match self.open_file {
+            let open_file = match &self.settings.open_file {
                 Some(f) => f.to_str().unwrap(),
-                &mut None => todo!(),
+                None => todo!(),
             };
 
             let code_buf = self
@@ -164,7 +163,7 @@ impl State<'_> {
             return;
         }
 
-        *self.open_file = Some(path);
+        self.settings.open_file = Some(path);
     }
 
     pub fn build_and_run(&mut self) {
@@ -350,19 +349,22 @@ fn top_menu_button<R>(
     title: &str,
     add_contents: impl FnOnce(&mut egui::Ui) -> R,
 ) -> egui::InnerResponse<Option<R>> {
-    let inner = ui.menu_button(title, add_contents);
+    let (response, inner) = egui::containers::menu::MenuButton::new(title)
+        .config(
+            egui::containers::menu::MenuConfig::new()
+                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside),
+        )
+        .ui(ui, add_contents);
 
     let ctx = ui.ctx();
-    let popup_id = egui::Popup::default_response_id(&inner.response);
+    let popup_id = egui::Popup::default_response_id(&response);
 
-    if inner.response.hovered()
-        && egui::Popup::is_any_open(ctx)
-        && !egui::Popup::is_id_open(ctx, popup_id)
+    if response.hovered() && egui::Popup::is_any_open(ctx) && !egui::Popup::is_id_open(ctx, popup_id)
     {
         egui::Popup::open_id(ctx, popup_id);
     }
 
-    inner
+    egui::InnerResponse::new(inner.map(|i| i.inner), response)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -643,7 +645,6 @@ pub struct IdeApp {
     code_buf: Option<String>,
     binary_file: bool,
     ide_path: Option<PathBuf>,
-    open_file: Option<PathBuf>,
 
     settings: Settings,
 
@@ -662,7 +663,7 @@ impl IdeApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         ide_path: Option<PathBuf>,
-        settings: Settings,
+        mut settings: Settings,
     ) -> Self {
         /* supress assembler panics */
         std::panic::set_hook(Box::new(|_info| {}));
@@ -702,6 +703,19 @@ impl IdeApp {
             eprintln!("Couldn't write example.asm to workspace directory: {e}");
         }
 
+        let resolved_open_file = settings
+            .open_file
+            .clone()
+            .filter(|p| p.is_file())
+            .unwrap_or_else(|| example_path.clone());
+
+        let (code_buf, binary_file) = match std::fs::read_to_string(&resolved_open_file) {
+            Ok(content) => (Some(content), false),
+            Err(_) => (None, true),
+        };
+
+        settings.open_file = Some(resolved_open_file);
+
         let charmap = settings.charmap.clone();
 
         Self {
@@ -719,10 +733,9 @@ impl IdeApp {
             freq,
             running,
 
-            code_buf: None,
-            binary_file: false,
+            code_buf,
+            binary_file,
             ide_path: ide_path.clone(),
-            open_file: Some(example_path),
 
             settings,
 
@@ -757,11 +770,7 @@ impl IdeApp {
 }
 
 impl eframe::App for IdeApp {
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.open_tabs.is_empty() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        }
-
+    fn logic(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.save_settings_if_needed();
     }
 
@@ -781,7 +790,6 @@ impl eframe::App for IdeApp {
             binary_file: &mut self.binary_file,
             log_panel: self.log_panel.clone(),
             ide_path: &mut self.ide_path,
-            open_file: &mut self.open_file,
             workspace_path: self.file_explorer.workspace_path().to_path_buf(),
             settings: &mut self.settings,
         };

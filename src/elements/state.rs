@@ -22,7 +22,7 @@ impl Default for StatePanel {
 impl StatePanel {
     fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: Radix) -> egui::DragValue<'a> {
         match radix {
-            Radix::Binary => dv.binary(8, false),
+            Radix::Binary => dv.binary(16, false),
             Radix::Decimal => dv,
             Radix::Hex => dv.hexadecimal(4, false, true),
             Radix::Octal => dv.octal(6, false),
@@ -31,7 +31,12 @@ impl StatePanel {
 
     fn reg_row(ui: &mut egui::Ui, label: &str, value: &mut u16, radix: Radix, enabled: bool) {
         ui.label(label);
-        ui.add_enabled(enabled, Self::reg_fmt(egui::DragValue::new(value), radix));
+        ui.with_layout(
+            egui::Layout::left_to_right(egui::Align::Center).with_main_align(egui::Align::Min),
+            |ui| {
+                ui.add_enabled(enabled, Self::reg_fmt(egui::DragValue::new(value), radix));
+            },
+        );
     }
 }
 

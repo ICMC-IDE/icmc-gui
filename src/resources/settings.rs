@@ -3,7 +3,7 @@ use egui_dock::{DockState, NodeIndex, egui::ThemePreference};
 use serde::{Deserialize, Serialize};
 use std::{
     ops::{Deref, DerefMut},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -20,6 +20,9 @@ pub struct SettingsInner {
 
     #[serde(default = "default_show_build_button")]
     pub show_build_button: bool,
+
+    #[serde(default)]
+    pub open_file: Option<PathBuf>,
 
     #[serde(skip)]
     pub charmap: Charmap,
@@ -51,6 +54,7 @@ impl Default for Settings {
                 radix: Default::default(),
                 theme: Default::default(),
                 show_build_button: true,
+                open_file: None,
                 charmap: Default::default(),
                 input_enabled: false,
             },

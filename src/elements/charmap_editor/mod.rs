@@ -172,14 +172,11 @@ impl ViewState for CharmapEditor {
             );
 
             let color_code = (editor.current_color as u32) << 8;
-            let mut color_code_text = color_code.to_string();
+            let color_code_text = color_code.to_string();
+            let mut color_code_str = color_code_text.as_str();
             ui.horizontal(|ui| {
                 ui.label("Add to char code:");
-                ui.add(
-                    egui::TextEdit::singleline(&mut color_code_text)
-                        .interactive(false)
-                        .desired_width(120.0),
-                );
+                ui.add(egui::TextEdit::singleline(&mut color_code_str).desired_width(120.0));
             });
         };
         let show_glyph = |ui: &mut egui::Ui, editor: &mut Self, state: &mut State| {

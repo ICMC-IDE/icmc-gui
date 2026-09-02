@@ -200,8 +200,8 @@ fn delete_entry(parent: &mut Entry, del_path: &Path, state: &mut State) {
         Ok(()) => {
             parent.children.retain(|c| c.path != del_path);
 
-            if state.open_file.as_deref() == Some(del_path) {
-                *state.open_file = None;
+            if state.settings.open_file.as_deref() == Some(del_path) {
+                state.settings.open_file = None;
                 *state.code_buf = None;
                 *state.binary_file = false;
             }
@@ -264,7 +264,7 @@ fn show_row(
             show_rename_field(ui, entry, state, inline_edit);
         } else {
             let is_selected =
-                !entry.is_dir && state.open_file.as_deref() == Some(entry.path.as_path());
+                !entry.is_dir && state.settings.open_file.as_deref() == Some(entry.path.as_path());
 
             let response = ui.selectable_label(is_selected, &entry.name);
 
@@ -275,7 +275,7 @@ fn show_row(
                         entry.sync_children();
                     }
                 } else {
-                    *state.open_file = Some(
+                    state.settings.open_file = Some(
                         entry
                             .path
                             .canonicalize()
@@ -339,8 +339,8 @@ fn show_rename_field(
             let new_path = entry.path.with_file_name(&new_name);
 
             if fs::rename(&entry.path, &new_path).is_ok() {
-                if state.open_file.as_deref() == Some(entry.path.as_path()) {
-                    *state.open_file = Some(new_path.clone());
+                if state.settings.open_file.as_deref() == Some(entry.path.as_path()) {
+                    state.settings.open_file = Some(new_path.clone());
                 }
                 entry.path = new_path;
                 entry.name = new_name;
