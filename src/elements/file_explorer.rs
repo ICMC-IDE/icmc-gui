@@ -112,6 +112,10 @@ impl FileExplorer {
         }
     }
 
+    pub fn workspace_path(&self) -> &Path {
+        &self.root.path
+    }
+
     pub fn set_workspace(&mut self, path: PathBuf) {
         let mut root = Entry::new(path);
         root.expanded = true;

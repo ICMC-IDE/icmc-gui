@@ -111,7 +111,10 @@ impl ViewState for CharmapEditor {
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_directory(&state.workspace_path)
+                        .save_file()
+                    {
                         let mif = mif::Mif::new(
                             state.settings.charmap.bytes(),
                             mif::Radix::Uns,

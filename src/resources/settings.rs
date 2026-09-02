@@ -18,12 +18,19 @@ pub struct SettingsInner {
     #[serde(default)]
     pub theme: ThemePreference,
 
+    #[serde(default = "default_show_build_button")]
+    pub show_build_button: bool,
+
     #[serde(skip)]
     pub charmap: Charmap,
 
     /* internal */
     #[serde(skip)]
     pub input_enabled: bool,
+}
+
+fn default_show_build_button() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,6 +50,7 @@ impl Default for Settings {
                 screen_size: (40, 30),
                 radix: Default::default(),
                 theme: Default::default(),
+                show_build_button: true,
                 charmap: Default::default(),
                 input_enabled: false,
             },
@@ -51,14 +59,16 @@ impl Default for Settings {
     }
 }
 
-fn default_dock_layout() -> DockState<String> {
+pub fn default_dock_layout() -> DockState<String> {
     let mut tree = DockState::new(vec!["Code Editor".to_owned()]);
     let surface = tree.main_surface_mut();
 
     let [code_editor, screen] =
         surface.split_left(NodeIndex::root(), 0.3, vec!["Screen".to_owned()]);
     surface.split_below(screen, 0.5, vec!["State".to_owned()]);
-    surface.split_below(code_editor, 0.7, vec!["Log".to_owned()]);
+
+    let [code_editor, _log] = surface.split_below(code_editor, 0.7, vec!["Log".to_owned()]);
+    surface.split_right(code_editor, 0.8, vec!["File Explorer".to_owned()]);
 
     tree
 }

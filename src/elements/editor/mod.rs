@@ -41,6 +41,15 @@ impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         ui.add_space(10.0);
 
+        if state.settings.show_build_button {
+            ui.horizontal(|ui| {
+                if ui.button("Build and Run").clicked() {
+                    state.build_and_run();
+                }
+            });
+            ui.add_space(4.0);
+        }
+
         let color_theme = if ui.visuals().dark_mode {
             ColorTheme::GITHUB_DARK
         } else {
@@ -75,6 +84,21 @@ impl ViewState for Editor {
 
         if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::G))) {
             self.activate_goto();
+        }
+
+        /* Increase (ctrl++) / Decrease (ctrl+-) font size */
+        let increase_font = ui.input_mut(|i| {
+            i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::Plus))
+                || i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::Equals))
+        });
+        if increase_font && state.settings.font_size <= 64.0 {
+            state.settings.font_size += 2.0;
+        }
+
+        if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::Minus)))
+            && state.settings.font_size >= 4.0
+        {
+            state.settings.font_size -= 2.0;
         }
 
         let mut focus_editor = false;

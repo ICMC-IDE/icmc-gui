@@ -35,6 +35,7 @@ pub struct State<'a> {
     pub log_panel: Arc<Mutex<LogPanel>>,
     pub ide_path: &'a mut Option<PathBuf>,
     pub open_file: &'a mut Option<PathBuf>,
+    pub workspace_path: PathBuf,
     pub settings: &'a mut Settings,
 }
 
@@ -147,6 +148,22 @@ impl State<'_> {
                 }
             }
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn save_file_as(&mut self, path: PathBuf) {
+        let code_buf = self
+            .code_buf
+            .get_or_insert_with(|| include_str!("../res/example.asm").to_owned());
+
+        if let Err(e) = std::fs::write(&path, code_buf.as_bytes()) {
+            if let Ok(mut log_panel) = self.log_panel.lock() {
+                log_panel.add_log(format!("Failed to save file: {}", e));
+            }
+            return;
+        }
+
+        *self.open_file = Some(path);
     }
 
     pub fn build_and_run(&mut self) {
@@ -347,6 +364,16 @@ fn top_menu_button<R>(
     inner
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn save_as_dialog(state: &mut State) {
+    if let Some(path) = rfd::FileDialog::new()
+        .set_directory(&state.workspace_path)
+        .save_file()
+    {
+        state.save_file_as(path);
+    }
+}
+
 fn menu_bar(
     ui: &mut egui::Ui,
     tree: &mut DockState<String>,
@@ -359,6 +386,15 @@ fn menu_bar(
     let save_shortcut = egui::KeyboardShortcut::new(
         egui::Modifiers {
             ctrl: true,
+            ..Default::default()
+        },
+        egui::Key::S,
+    );
+    #[cfg(not(target_arch = "wasm32"))]
+    let save_as_shortcut = egui::KeyboardShortcut::new(
+        egui::Modifiers {
+            ctrl: true,
+            shift: true,
             ..Default::default()
         },
         egui::Key::S,
@@ -388,6 +424,11 @@ fn menu_bar(
 
     if ui.input_mut(|i| i.consume_shortcut(&build_shortcut)) {
         state.build_and_run();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if ui.input_mut(|i| i.consume_shortcut(&save_as_shortcut)) {
+        save_as_dialog(state);
     }
 
     ui.add_space(2.0);
@@ -420,6 +461,17 @@ fn menu_bar(
 
             #[cfg(not(target_arch = "wasm32"))]
             {
+                if ui
+                    .add(
+                        egui::Button::new("Save As")
+                            .shortcut_text(ui.ctx().format_shortcut(&save_as_shortcut)),
+                    )
+                    .clicked()
+                {
+                    save_as_dialog(state);
+                    ui.close();
+                }
+
                 ui.separator();
 
                 if ui.button("Open File").clicked() {
@@ -488,23 +540,35 @@ fn menu_bar(
                 ui.selectable_value(&mut state.settings.radix, Radix::Octal, "Octal");
             });
 
-            ui.menu_button("Font Size", |ui| {
-                if ui.button("Reset font size").clicked() {
-                    state.settings.font_size = 14.0;
-                }
-
-                ui.horizontal(|ui| {
-                    if ui.button("-").clicked() && state.settings.font_size >= 4.0 {
-                        state.settings.font_size -= 2.0;
+            egui::containers::menu::SubMenuButton::new("Font Size")
+                .config(
+                    egui::containers::menu::MenuConfig::new()
+                        .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside),
+                )
+                .ui(ui, |ui| {
+                    if ui.button("Reset font size").clicked() {
+                        state.settings.font_size = 14.0;
                     }
 
-                    ui.label(format!("{} pt", state.settings.font_size));
+                    ui.horizontal(|ui| {
+                        if ui.button("-").clicked() && state.settings.font_size >= 4.0 {
+                            state.settings.font_size -= 2.0;
+                        }
 
-                    if ui.button("+").clicked() && state.settings.font_size <= 64.0 {
-                        state.settings.font_size += 2.0;
-                    }
+                        ui.label(format!("{} pt", state.settings.font_size));
+
+                        if ui.button("+").clicked() && state.settings.font_size <= 64.0 {
+                            state.settings.font_size += 2.0;
+                        }
+                    });
                 });
-            });
+
+            ui.separator();
+
+            ui.checkbox(
+                &mut state.settings.show_build_button,
+                "Show Build Button in Editor",
+            );
 
             ui.separator();
 
@@ -519,6 +583,19 @@ fn menu_bar(
                 if ui.checkbox(&mut is_open, name).changed() {
                     toggle_panel(tree, open_tabs, state.ide_path, name);
                 }
+            }
+
+            ui.separator();
+
+            if ui.button("Reset panels").clicked() {
+                *tree = crate::resources::settings::default_dock_layout();
+                *open_tabs = tree.iter_all_tabs().map(|(_, tab)| tab.clone()).collect();
+
+                if let Some(path) = state.ide_path.as_deref() {
+                    crate::resources::settings::save_dock_layout(path, tree);
+                }
+
+                ui.close();
             }
         });
 
@@ -711,6 +788,7 @@ impl eframe::App for IdeApp {
             log_panel: self.log_panel.clone(),
             ide_path: &mut self.ide_path,
             open_file: &mut self.open_file,
+            workspace_path: self.file_explorer.workspace_path().to_path_buf(),
             settings: &mut self.settings,
         };
 
