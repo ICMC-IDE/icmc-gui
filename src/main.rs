@@ -12,8 +12,7 @@ fn main() -> eframe::Result {
     let ide_path = ide_dir();
     let settings = Settings::load(Some(&ide_path));
 
-    let viewport = egui::ViewportBuilder::default()
-        .with_min_inner_size([780.0, 530.0]);
+    let viewport = egui::ViewportBuilder::default().with_min_inner_size([780.0, 530.0]);
 
     let native_options = eframe::NativeOptions {
         persist_window: true,
@@ -24,9 +23,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "ICMC IDE (native)", /* title */
         native_options,      /* options */
-        Box::new(|cc| {
-            Ok(Box::new(<IdeApp>::new(cc, Some(ide_path), settings)))
-        }), /* creation ctx */
+        Box::new(|cc| Ok(Box::new(<IdeApp>::new(cc, Some(ide_path), settings)))), /* creation ctx */
     )
 }
 

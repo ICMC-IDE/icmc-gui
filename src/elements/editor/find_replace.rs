@@ -298,10 +298,8 @@ pub fn paint_highlights(
             .pos_from_cursor(end)
             .translate(output.galley_pos.to_vec2());
 
-        let rect = egui::Rect::from_min_max(
-            start_rect.min,
-            egui::pos2(end_rect.max.x, start_rect.max.y),
-        );
+        let rect =
+            egui::Rect::from_min_max(start_rect.min, egui::pos2(end_rect.max.x, start_rect.max.y));
 
         painter.rect_filled(rect, 2.0, fill);
         if i == current {

@@ -22,18 +22,13 @@ pub struct Documentation {
 
 impl Default for Documentation {
     fn default() -> Self {
-        let rows =
-            toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
-                .expect("Couldn't parse documentation TOML file")
-                .get("row")
-                .expect(
-                    "Couldn't find entry 'instruction' in documentation file",
-                )
-                .clone()
-                .try_into::<Vec<Row>>()
-                .expect(
-                    "Couldn't parse instructions array from documentation file",
-                );
+        let rows = toml::from_str::<toml::Value>(include_str!("../../res/doc.toml"))
+            .expect("Couldn't parse documentation TOML file")
+            .get("row")
+            .expect("Couldn't find entry 'instruction' in documentation file")
+            .clone()
+            .try_into::<Vec<Row>>()
+            .expect("Couldn't parse instructions array from documentation file");
 
         Self { rows }
     }

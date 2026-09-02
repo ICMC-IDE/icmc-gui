@@ -22,12 +22,7 @@ impl Default for Charmap {
 }
 
 impl Charmap {
-    pub fn new(
-        char_width: usize,
-        char_height: usize,
-        num_colors: usize,
-        num_chars: usize,
-    ) -> Self {
+    pub fn new(char_width: usize, char_height: usize, num_colors: usize, num_chars: usize) -> Self {
         let screen_width = char_width * num_colors;
         let screen_height = char_height * num_chars;
 
@@ -49,12 +44,10 @@ impl Charmap {
         num_chars: usize,
         bytes: Vec<u8>,
     ) -> Self {
-        let mut charmap =
-            Charmap::new(char_width, char_height, num_colors, num_chars);
+        let mut charmap = Charmap::new(char_width, char_height, num_colors, num_chars);
 
         charmap.bytes = bytes;
-        charmap.color_palette =
-            Self::parse_palette(include_str!("../../res/8bit.json"));
+        charmap.color_palette = Self::parse_palette(include_str!("../../res/8bit.json"));
         charmap.pixels = charmap.render_pixels();
 
         charmap
@@ -67,9 +60,7 @@ impl Charmap {
             .split(',')
             .flat_map(|entry| {
                 let hex = entry.trim().trim_matches('"');
-                let channel = |offset| {
-                    u8::from_str_radix(&hex[offset..offset + 2], 16).unwrap()
-                };
+                let channel = |offset| u8::from_str_radix(&hex[offset..offset + 2], 16).unwrap();
 
                 [channel(1), channel(3), channel(5), 0xff]
             })
@@ -84,10 +75,8 @@ impl Charmap {
 
         let mut pixels = vec![0u8; screen_width * screen_height * 4];
 
-        for (color_idx, color) in self.color_palette.chunks_exact(4).enumerate()
-        {
-            let (mut r, mut g, mut b, a) =
-                (color[0], color[1], color[2], color[3]);
+        for (color_idx, color) in self.color_palette.chunks_exact(4).enumerate() {
+            let (mut r, mut g, mut b, a) = (color[0], color[1], color[2], color[3]);
 
             /* non-white colors are drawn inverted */
             if (r, g, b) != (0xff, 0xff, 0xff) {

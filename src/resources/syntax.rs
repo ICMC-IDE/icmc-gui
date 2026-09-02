@@ -7,7 +7,15 @@ pub fn icmc() -> &'static Syntax {
     SYNTAX.get_or_init(|| {
         Syntax::new("ICMC Assembly")
             .with_comment(";")
-            .with_keywords(include_str!("../../res/syntax/keywords").lines().collect::<BTreeSet<_>>())
-            .with_special(include_str!("../../res/syntax/regs").lines().collect::<BTreeSet<_>>())
+            .with_keywords(
+                include_str!("../../res/syntax/keywords")
+                    .lines()
+                    .collect::<BTreeSet<_>>(),
+            )
+            .with_special(
+                include_str!("../../res/syntax/regs")
+                    .lines()
+                    .collect::<BTreeSet<_>>(),
+            )
     })
 }

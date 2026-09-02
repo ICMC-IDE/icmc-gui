@@ -77,8 +77,7 @@ impl ViewState for CharmapEditor {
         ui.horizontal(|ui| {
             if ui.button("Import").clicked() {
                 #[cfg(target_arch = "wasm32")]
-                {
-                }
+                {}
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -87,9 +86,7 @@ impl ViewState for CharmapEditor {
                             std::fs::read_to_string(path)
                                 .ok()
                                 .and_then(|s| mif::parser::parse_mif(&s))
-                                .and_then(|parsed| {
-                                    Some(Charmap::from_bytes(8, 8, 30, 40, parsed))
-                                })
+                                .and_then(|parsed| Some(Charmap::from_bytes(8, 8, 30, 40, parsed)))
                                 .unwrap_or_else(Charmap::default)
                         }) {
                             state.settings.charmap = cm;
@@ -110,8 +107,7 @@ impl ViewState for CharmapEditor {
 
             if ui.button("Export").clicked() {
                 #[cfg(target_arch = "wasm32")]
-                {
-                }
+                {}
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {

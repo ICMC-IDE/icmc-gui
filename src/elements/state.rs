@@ -20,10 +20,7 @@ impl Default for StatePanel {
 }
 
 impl StatePanel {
-    fn reg_fmt<'a>(
-        dv: egui::DragValue<'a>,
-        radix: Radix,
-    ) -> egui::DragValue<'a> {
+    fn reg_fmt<'a>(dv: egui::DragValue<'a>, radix: Radix) -> egui::DragValue<'a> {
         match radix {
             Radix::Binary => dv.binary(8, false),
             Radix::Decimal => dv,
@@ -32,13 +29,7 @@ impl StatePanel {
         }
     }
 
-    fn reg_row(
-        ui: &mut egui::Ui,
-        label: &str,
-        value: &mut u16,
-        radix: Radix,
-        enabled: bool,
-    ) {
+    fn reg_row(ui: &mut egui::Ui, label: &str, value: &mut u16, radix: Radix, enabled: bool) {
         ui.label(label);
         ui.add_enabled(enabled, Self::reg_fmt(egui::DragValue::new(value), radix));
     }
@@ -84,9 +75,7 @@ impl ViewState for StatePanel {
                     icmc_emulator::State::Paused => "Paused",
                     icmc_emulator::State::BreakPoint => "Breakpoint",
                     icmc_emulator::State::Halted => "Halted",
-                    icmc_emulator::State::UnknownInstruction => {
-                        "Unknown Instruction"
-                    }
+                    icmc_emulator::State::UnknownInstruction => "Unknown Instruction",
                 }
             };
         }
@@ -114,13 +103,10 @@ impl ViewState for StatePanel {
                         s.strip_suffix("MHz").or_else(|| s.strip_suffix("mhz"))
                     {
                         (n, 1e6)
-                    } else if let Some(n) =
-                        s.strip_suffix("kHz").or_else(|| s.strip_suffix("khz"))
+                    } else if let Some(n) = s.strip_suffix("kHz").or_else(|| s.strip_suffix("khz"))
                     {
                         (n, 1e3)
-                    } else if let Some(n) =
-                        s.strip_suffix("Hz").or_else(|| s.strip_suffix("hz"))
-                    {
+                    } else if let Some(n) = s.strip_suffix("Hz").or_else(|| s.strip_suffix("hz")) {
                         (n, 1.0)
                     } else {
                         (s, 1.0)
@@ -136,25 +122,13 @@ impl ViewState for StatePanel {
             ui.label("Registers");
             ui.horizontal(|ui| {
                 for i in 0..4 {
-                    Self::reg_row(
-                        ui,
-                        &format!("R{i}: "),
-                        emu.reg_as_mut_ref(i),
-                        radix,
-                        true,
-                    );
+                    Self::reg_row(ui, &format!("R{i}: "), emu.reg_as_mut_ref(i), radix, true);
                 }
             });
 
             ui.horizontal(|ui| {
                 for i in 4..8 {
-                    Self::reg_row(
-                        ui,
-                        &format!("R{i}: "),
-                        emu.reg_as_mut_ref(i),
-                        radix,
-                        true,
-                    );
+                    Self::reg_row(ui, &format!("R{i}: "), emu.reg_as_mut_ref(i), radix, true);
                 }
             });
 
@@ -181,25 +155,13 @@ impl ViewState for StatePanel {
             ui.label("Registers");
             ui.horizontal(|ui| {
                 for i in 0..4 {
-                    Self::reg_row(
-                        ui,
-                        &format!("R{i}: "),
-                        &mut self.last_regs[i],
-                        radix,
-                        false,
-                    );
+                    Self::reg_row(ui, &format!("R{i}: "), &mut self.last_regs[i], radix, false);
                 }
             });
 
             ui.horizontal(|ui| {
                 for i in 4..8 {
-                    Self::reg_row(
-                        ui,
-                        &format!("R{i}: "),
-                        &mut self.last_regs[i],
-                        radix,
-                        false,
-                    );
+                    Self::reg_row(ui, &format!("R{i}: "), &mut self.last_regs[i], radix, false);
                 }
             });
 

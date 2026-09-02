@@ -20,102 +20,26 @@ pub struct Editor {
     editor_id: Option<egui::Id>,
 }
 
+impl Editor {
+    pub fn open_find(&mut self) {
+        self.goto.close();
+        self.find.open_find();
+    }
+
+    pub fn open_replace(&mut self) {
+        self.goto.close();
+        self.find.open_replace();
+    }
+
+    pub fn activate_goto(&mut self) {
+        self.find.close();
+        self.goto.activate();
+    }
+}
+
 impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         ui.add_space(10.0);
-
-        ui.horizontal(|ui| {
-            if ui.button("Save").clicked() {
-                #[cfg(target_family = "wasm")]
-                {
-                    todo!("Need to implement JS wrapper to fs.js");
-                }
-
-                #[cfg(not(target_family = "wasm"))]
-                {
-                    let open_file = match state.open_file {
-                        Some(f) => f.to_str().unwrap(),
-                        &mut None => todo!(),
-                    };
-
-                    let code_buf = state.code_buf.get_or_insert_with(|| {
-                        include_str!("../../../res/example.asm").to_owned()
-                    });
-
-                    if let Err(e) =
-                        std::fs::write(open_file, code_buf.as_bytes())
-                    {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!(
-                                "Failed to write .code.asm: {}",
-                                e
-                            ));
-                        }
-                        return;
-                    }
-                }
-            }
-
-            if ui.button("Build and Run").clicked() {
-                let icmc_syntax = include_str!("../../../res/icmc.toml");
-
-                if let Ok(mut log_panel) = state.log_panel.lock() {
-                    log_panel.auto_scroll();
-                }
-
-                let code_buf = state.code_buf.get_or_insert_with(|| {
-                    include_str!("../../../res/example.asm").to_owned()
-                });
-
-                match assembler::assemble_from_buf(code_buf.as_str(), icmc_syntax) {
-                    Ok(asm) => {
-                        state
-                            .emulator
-                            .lock()
-                            .unwrap()
-                            .load_program(&asm.binary());
-                        state.spawn_run_loop();
-                    }
-                    Err(err) => {
-                        if let Ok(mut log_panel) = state.log_panel.lock() {
-                            log_panel.add_log(format!("Error: {}", err));
-                        }
-                    }
-                };
-            }
-
-            if ui.button("Clear Editor").clicked() {
-                if let Some(buf) = state.code_buf.as_mut() {
-                    buf.clear();
-                }
-            }
-
-            ui.with_layout(
-                egui::Layout::right_to_left(egui::Align::Center),
-                |ui| {
-                    if ui.button("Reset font size").clicked() {
-                        state.settings.font_size = 14.0;
-                    }
-
-                    if ui.button("-").clicked()
-                        && state.settings.font_size >= 4.0
-                    {
-                        state.settings.font_size -= 2.0;
-                    }
-
-                    if ui.button("+").clicked()
-                        && state.settings.font_size <= 64.0
-                    {
-                        state.settings.font_size += 2.0;
-                    }
-
-                    ui.label(format!(
-                        "Font size: {} pt",
-                        state.settings.font_size
-                    ));
-                },
-            );
-        });
 
         let color_theme = if ui.visuals().dark_mode {
             ColorTheme::GITHUB_DARK
@@ -124,37 +48,16 @@ impl ViewState for Editor {
         };
 
         /* Save with ctrl+S */
-        ui.input_mut(|i| {
+        if ui.input_mut(|i| {
             let modifiers = egui::Modifiers {
                 ctrl: true,
                 ..Default::default()
             };
 
-            if i.consume_shortcut(&egui::KeyboardShortcut::new(
-                modifiers,
-                egui::Key::S,
-            )) {
-                let open_file = match state.open_file {
-                    Some(f) => f.to_str().unwrap(),
-                    &mut None => todo!(),
-                };
-
-                let code_buf = state.code_buf.get_or_insert_with(|| {
-                    include_str!("../../../res/example.asm").to_owned()
-                });
-
-                if let Err(e) = std::fs::write(open_file, code_buf.as_bytes())
-                {
-                    if let Ok(mut log_panel) = state.log_panel.lock() {
-                        log_panel.add_log(format!(
-                            "Failed to write .code.asm: {}",
-                            e
-                        ));
-                    }
-                    return;
-                }
-            }
-        });
+            i.consume_shortcut(&egui::KeyboardShortcut::new(modifiers, egui::Key::S))
+        }) {
+            state.save_file();
+        }
 
         /* Find (ctrl+F), Replace (ctrl+H), Go to Line (ctrl+G), Close (Esc) */
         let ctrl = egui::Modifiers {
@@ -162,42 +65,31 @@ impl ViewState for Editor {
             ..Default::default()
         };
 
-        if ui.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::F))
-        }) {
-            self.goto.close();
-            self.find.open_find();
+        if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::F))) {
+            self.open_find();
         }
 
-        if ui.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::H))
-        }) {
-            self.goto.close();
-            self.find.open_replace();
+        if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::H))) {
+            self.open_replace();
         }
 
-        if ui.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::G))
-        }) {
-            self.find.close();
-            self.goto.activate();
+        if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(ctrl, egui::Key::G))) {
+            self.activate_goto();
         }
 
         let mut focus_editor = false;
 
         if (self.find.open || self.goto.open)
-            && ui.input_mut(|i| {
-                i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)
-            })
+            && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
         {
             self.find.close();
             self.goto.close();
             focus_editor = true;
         }
 
-        let mut_code_buf = state.code_buf.get_or_insert_with(|| {
-            include_str!("../../../res/example.asm").to_owned()
-        });
+        let mut_code_buf = state
+            .code_buf
+            .get_or_insert_with(|| include_str!("../../../res/example.asm").to_owned());
 
         let editor_rect = ui.available_rect_before_wrap();
 
@@ -252,8 +144,7 @@ impl ViewState for Editor {
                         .show(ui, mut_code_buf, syntax::icmc());
 
                     if let Some(range) = &pending_jump {
-                        let start =
-                            egui::text::CCursor::new(char_index(mut_code_buf, range.start));
+                        let start = egui::text::CCursor::new(char_index(mut_code_buf, range.start));
                         let rect = output
                             .galley
                             .pos_from_cursor(start)
@@ -300,7 +191,5 @@ fn line_start_byte_offset(text: &str, line: usize) -> usize {
 
 fn line_end_byte_offset(text: &str, line: usize) -> usize {
     let start = line_start_byte_offset(text, line);
-    text[start..]
-        .find('\n')
-        .map_or(text.len(), |i| start + i)
+    text[start..].find('\n').map_or(text.len(), |i| start + i)
 }

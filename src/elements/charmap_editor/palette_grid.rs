@@ -27,7 +27,11 @@ pub fn show(ui: &mut egui::Ui, charmap: &Charmap, current_color: &mut usize) {
         );
 
         let [r, g, b, a] = charmap.palette_rgba(i);
-        painter.rect_filled(cell_rect, 0.0, egui::Color32::from_rgba_unmultiplied(r, g, b, a));
+        painter.rect_filled(
+            cell_rect,
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(r, g, b, a),
+        );
 
         if i == *current_color {
             painter.rect_stroke(

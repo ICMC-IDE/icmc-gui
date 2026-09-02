@@ -20,7 +20,12 @@ impl GotoLine {
         self.input.clear();
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, anchor: egui::Rect, theme: ColorTheme) -> Option<usize> {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        anchor: egui::Rect,
+        theme: ColorTheme,
+    ) -> Option<usize> {
         if !self.open {
             return None;
         }
