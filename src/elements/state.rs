@@ -178,5 +178,25 @@ impl ViewState for StatePanel {
                 Self::reg_row(ui, "WC: ", &mut self.last_iregs[5], radix, false);
             });
         }
+
+        ui.add_space(8.0);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if ui.button("Export cpuram.mif").clicked() {
+            if let Some(path) = rfd::FileDialog::new()
+                .set_directory(&state.workspace_path)
+                .set_file_name("cpuram.mif")
+                .save_file()
+            {
+                let emu = state.emulator.lock().unwrap();
+                let mif = mif::Mif::new(emu.rom(), mif::Radix::Uns, mif::Radix::Bin);
+
+                if let Err(e) = std::fs::write(path, format!("{}", mif)) {
+                    if let Ok(mut log_panel) = state.log_panel.lock() {
+                        log_panel.add_log(format!("Failed to export cpuram.mif: {e}"));
+                    }
+                }
+            }
+        }
     }
 }

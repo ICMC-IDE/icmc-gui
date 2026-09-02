@@ -203,6 +203,7 @@ fn delete_entry(parent: &mut Entry, del_path: &Path, state: &mut State) {
             if state.open_file.as_deref() == Some(del_path) {
                 *state.open_file = None;
                 *state.code_buf = None;
+                *state.binary_file = false;
             }
         }
         Err(e) => {
@@ -280,7 +281,17 @@ fn show_row(
                             .canonicalize()
                             .unwrap_or_else(|_| entry.path.clone()),
                     );
-                    *state.code_buf = Some(fs::read_to_string(&entry.path).unwrap_or_default());
+
+                    match fs::read_to_string(&entry.path) {
+                        Ok(content) => {
+                            *state.code_buf = Some(content);
+                            *state.binary_file = false;
+                        }
+                        Err(_) => {
+                            *state.code_buf = None;
+                            *state.binary_file = true;
+                        }
+                    }
                 }
             }
 

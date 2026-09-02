@@ -32,6 +32,7 @@ pub struct State<'a> {
 
     pub running: Arc<AtomicBool>,
     pub code_buf: &'a mut Option<String>,
+    pub binary_file: &'a mut bool,
     pub log_panel: Arc<Mutex<LogPanel>>,
     pub ide_path: &'a mut Option<PathBuf>,
     pub open_file: &'a mut Option<PathBuf>,
@@ -381,7 +382,6 @@ fn menu_bar(
     editor: &mut Editor,
     file_explorer: &mut FileExplorer,
     state: &mut State,
-    show_about: &mut bool,
 ) {
     let save_shortcut = egui::KeyboardShortcut::new(
         egui::Modifiers {
@@ -617,13 +617,6 @@ fn menu_bar(
             if ui.checkbox(&mut doc_open, "Documentation").changed() {
                 toggle_panel(tree, open_tabs, state.ide_path, "Documentation");
             }
-
-            ui.separator();
-
-            if ui.button("About").clicked() {
-                *show_about = true;
-                ui.close();
-            }
         });
     });
     ui.add_space(2.0);
@@ -648,11 +641,11 @@ pub struct IdeApp {
     running: Arc<AtomicBool>, /* Emulator thread status */
 
     code_buf: Option<String>,
+    binary_file: bool,
     ide_path: Option<PathBuf>,
     open_file: Option<PathBuf>,
 
     settings: Settings,
-    show_about: bool,
 
     /* Elements */
     charmap_editor: CharmapEditor,
@@ -727,11 +720,11 @@ impl IdeApp {
             running,
 
             code_buf: None,
+            binary_file: false,
             ide_path: ide_path.clone(),
             open_file: Some(example_path),
 
             settings,
-            show_about: false,
 
             charmap_editor: CharmapEditor::default(),
             editor: Editor::default(),
@@ -785,6 +778,7 @@ impl eframe::App for IdeApp {
 
             running: self.running.clone(),
             code_buf: &mut self.code_buf,
+            binary_file: &mut self.binary_file,
             log_panel: self.log_panel.clone(),
             ide_path: &mut self.ide_path,
             open_file: &mut self.open_file,
@@ -801,21 +795,8 @@ impl eframe::App for IdeApp {
                 &mut self.editor,
                 &mut self.file_explorer,
                 &mut state,
-                &mut self.show_about,
             );
         });
-
-        egui::Window::new("About")
-            .open(&mut self.show_about)
-            .resizable(false)
-            .collapsible(false)
-            .show(ui.ctx(), |ui| {
-                ui.label(format!(
-                    "{} v{}",
-                    env!("CARGO_PKG_NAME"),
-                    env!("CARGO_PKG_VERSION")
-                ));
-            });
 
         egui::CentralPanel::default().show(ui, |ui| {
             let focused_tab = self.tree.find_active_focused().map(|(_, tab)| tab.clone());

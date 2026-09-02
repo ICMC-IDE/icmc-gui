@@ -41,6 +41,13 @@ impl ViewState for Editor {
     fn ui(&mut self, ui: &mut egui::Ui, state: &mut State) {
         ui.add_space(10.0);
 
+        if *state.binary_file {
+            ui.centered_and_justified(|ui| {
+                ui.label("This file is binary and cannot be edited in text mode");
+            });
+            return;
+        }
+
         if state.settings.show_build_button {
             ui.horizontal(|ui| {
                 if ui.button("Build and Run").clicked() {
