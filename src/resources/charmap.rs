@@ -6,6 +6,7 @@ pub struct Charmap {
     pixels: Vec<u8>,        /* RGBA */
     bytes: Vec<u8>,         /* bin format */
     pub needs_reload: bool,
+    pub needs_reload_editor: bool,
 }
 
 impl Default for Charmap {
@@ -37,6 +38,7 @@ impl Charmap {
             pixels: vec![0; num_chars * char_height],
             bytes: vec![0; screen_width * screen_height * 4],
             needs_reload: true,
+            needs_reload_editor: true,
         }
     }
 
@@ -126,5 +128,51 @@ impl Charmap {
 
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
+    }
+
+    pub fn char_width(&self) -> usize {
+        self.char_width
+    }
+
+    pub fn char_height(&self) -> usize {
+        self.char_height
+    }
+
+    pub fn num_colors(&self) -> usize {
+        self.color_palette.len() / 4
+    }
+
+    pub fn num_chars(&self) -> usize {
+        self.bytes.len() / self.char_height
+    }
+
+    pub fn palette_rgba(&self, color_index: usize) -> [u8; 4] {
+        let o = color_index * 4;
+        let (mut r, mut g, mut b, a) = (
+            self.color_palette[o],
+            self.color_palette[o + 1],
+            self.color_palette[o + 2],
+            self.color_palette[o + 3],
+        );
+
+        if (r, g, b) != (0xff, 0xff, 0xff) {
+            r ^= 0xff;
+            g ^= 0xff;
+            b ^= 0xff;
+        }
+
+        [r, g, b, a]
+    }
+
+    pub fn toggle_pixel(&mut self, x: usize, y: usize) {
+        if y >= self.bytes.len() {
+            return;
+        }
+
+        let mask = 0b1000_0000u8 >> x.min(self.char_width - 1);
+        self.bytes[y] ^= mask;
+        self.pixels = self.render_pixels();
+        self.needs_reload = true;
+        self.needs_reload_editor = true;
     }
 }
