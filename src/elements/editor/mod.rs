@@ -93,6 +93,10 @@ impl ViewState for Editor {
 
         let editor_rect = ui.available_rect_before_wrap();
 
+        let row_height = ui
+            .fonts_mut(|f| f.row_height(&egui::FontId::monospace(state.settings.font_size)));
+        let min_rows = (editor_rect.height() / row_height).floor().max(1.0) as usize;
+
         let find_was_open = self.find.open;
         let find_jump = self.find.show(ui, editor_rect, color_theme, mut_code_buf);
         focus_editor |= find_was_open && !self.find.open;
@@ -132,11 +136,12 @@ impl ViewState for Editor {
             .id_salt("asm_editor_scroll")
             .show(ui, |ui| {
                 ui.horizontal_top(|ui| {
-                    self.gutter.show(ui, color_theme, state.settings.font_size);
+                    self.gutter
+                        .show(ui, color_theme, state.settings.font_size, min_rows);
 
                     let output = CodeEditor::default()
                         .id_source("asm_editor")
-                        .with_rows(0)
+                        .with_rows(min_rows)
                         .with_fontsize(state.settings.font_size)
                         .with_theme(color_theme)
                         .with_numlines(false)

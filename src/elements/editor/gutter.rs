@@ -31,7 +31,7 @@ impl Gutter {
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, theme: ColorTheme, fontsize: f32) {
+    pub fn show(&mut self, ui: &mut egui::Ui, theme: ColorTheme, fontsize: f32, min_rows: usize) {
         let digits = self.line_count.to_string().len().max(1) as f32;
         let width = digits * fontsize * 0.5;
         let color = theme.type_color(TokenType::Comment(true));
@@ -50,7 +50,7 @@ impl Gutter {
                 .font(egui::TextStyle::Monospace)
                 .interactive(false)
                 .frame(egui::Frame::NONE)
-                .desired_rows(0)
+                .desired_rows(min_rows)
                 .desired_width(width)
                 .layouter(&mut layouter),
         );

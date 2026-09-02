@@ -352,6 +352,7 @@ fn menu_bar(
     tree: &mut DockState<String>,
     open_tabs: &mut HashSet<String>,
     editor: &mut Editor,
+    file_explorer: &mut FileExplorer,
     state: &mut State,
     show_about: &mut bool,
 ) {
@@ -415,6 +416,25 @@ fn menu_bar(
             {
                 state.save_file();
                 ui.close();
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                ui.separator();
+
+                if ui.button("Open File").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_file() {
+                        file_explorer.import_file(&path, state);
+                    }
+                    ui.close();
+                }
+
+                if ui.button("Change Workspace Directory").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                        file_explorer.set_workspace(path);
+                    }
+                    ui.close();
+                }
             }
         });
 
@@ -600,6 +620,7 @@ impl IdeApp {
             .unwrap_or_else(|| PathBuf::from("example.asm"));
 
         cc.egui_ctx.set_theme(settings.theme);
+        egui_material_icons::initialize(&cc.egui_ctx);
 
         let tree = crate::resources::settings::load_dock_layout(ide_path.as_deref());
         let open_tabs: HashSet<String> = tree.iter_all_tabs().map(|(_, tab)| tab.clone()).collect();
@@ -700,6 +721,7 @@ impl eframe::App for IdeApp {
                 &mut self.tree,
                 &mut self.open_tabs,
                 &mut self.editor,
+                &mut self.file_explorer,
                 &mut state,
                 &mut self.show_about,
             );
